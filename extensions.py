@@ -7,7 +7,7 @@ from flask_socketio import SocketIO
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
-socketio = SocketIO()
+socketio = SocketIO(cors_allowed_origins="*")
 
 # Initialize and configure Flask-Login
 login_manager.login_view = 'auth.login'

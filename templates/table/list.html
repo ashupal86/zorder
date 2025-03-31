@@ -1,204 +1,308 @@
 {% extends "base.html" %}
 
-{% block title %}Tables - Digital Waiter{% endblock %}
+{% block title %}My Tables{% endblock %}
 
 {% block extra_css %}
 <style>
-.qr-code-container {
-    position: relative;
-    width: 150px;
-    height: 150px;
-    margin: 0 auto;
-}
-
-.qr-code-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.qr-code-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.qr-code-container:hover .qr-code-overlay {
-    opacity: 1;
-}
-
-.table-card {
-    transition: transform 0.2s;
-}
-
-.table-card:hover {
-    transform: translateY(-5px);
-}
-
-.status-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-}
+    .table-container {
+        margin-bottom: 30px;
+    }
+    
+    .table-card {
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        height: 100%;
+        border: none;
+        box-shadow: 0 6px 15px var(--ghibli-shadow);
+        background: linear-gradient(to bottom, #ffffff, var(--ghibli-beige));
+        position: relative;
+    }
+    
+    .table-card:after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        right: -10px;
+        width: 60px;
+        height: 60px;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="%2388b27c" fill-opacity="0.15" d="M0,50 A50,50 0 1,0 100,50 A50,50 0 1,0 0,50 Z" /></svg>');
+        background-size: contain;
+        background-repeat: no-repeat;
+        z-index: 0;
+    }
+    
+    .table-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px var(--ghibli-shadow);
+    }
+    
+    .table-card .card-header {
+        background-color: white;
+        border-bottom: 2px solid var(--ghibli-light-blue);
+        padding: 15px;
+    }
+    
+    .table-card .card-title {
+        margin: 0;
+        font-weight: 700;
+        color: var(--ghibli-blue);
+        font-size: 1.3rem;
+    }
+    
+    .table-card .card-body {
+        padding: 20px;
+    }
+    
+    .qr-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    
+    .qr-code-img {
+        max-width: 200px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px var(--ghibli-shadow);
+        transition: all 0.3s ease;
+        border: 5px solid white;
+    }
+    
+    .qr-code-img:hover {
+        transform: scale(1.03);
+        box-shadow: 0 8px 20px var(--ghibli-shadow);
+    }
+    
+    .qr-container:after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        right: 30%;
+        width: 40px;
+        height: 40px;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="%235b90be" fill-opacity="0.1" d="M50,20 C60,40 80,50 95,50 C80,50 60,60 50,80 C40,60 20,50 5,50 C20,50 40,40 50,20 Z" /></svg>');
+        background-size: contain;
+        background-repeat: no-repeat;
+        z-index: 1;
+    }
+    
+    .table-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+    }
+    
+    .btn-table-action {
+        font-weight: 600;
+        border-radius: 20px;
+        padding: 8px 16px;
+        box-shadow: 0 4px 8px var(--ghibli-shadow);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-table-action:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px var(--ghibli-shadow);
+    }
+    
+    .table-info {
+        margin-bottom: 15px;
+        color: var(--ghibli-text);
+        font-weight: 600;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .add-table-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(45deg, var(--ghibli-light-blue), var(--ghibli-light-green));
+        border-radius: 16px;
+        cursor: pointer;
+        border: none;
+        padding: 30px;
+        color: var(--ghibli-text);
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 15px var(--ghibli-shadow);
+    }
+    
+    .add-table-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 24px var(--ghibli-shadow);
+    }
+    
+    .add-table-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        color: white;
+        background-color: var(--ghibli-blue);
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    
+    .no-tables-message {
+        text-align: center;
+        padding: 50px 20px;
+        background-color: white;
+        border-radius: 16px;
+        box-shadow: 0 6px 15px var(--ghibli-shadow);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .no-tables-message:before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 10px;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%2388b27c" fill-opacity="0.2" d="M0,224L60,213.3C120,203,240,181,360,181.3C480,181,600,203,720,197.3C840,192,960,160,1080,154.7C1200,149,1320,171,1380,181.3L1440,192L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path></svg>');
+        background-size: cover;
+        background-repeat: no-repeat;
+    }
+    
+    .no-tables-message i {
+        font-size: 4rem;
+        color: var(--ghibli-light-blue);
+        margin-bottom: 20px;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        position: relative;
+    }
+    
+    .section-title {
+        font-weight: 700;
+        color: var(--ghibli-blue);
+        font-size: 1.8rem;
+        margin: 0;
+        position: relative;
+        padding-left: 15px;
+    }
+    
+    .section-title:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        bottom: 8px;
+        width: 5px;
+        background-color: var(--ghibli-light-green);
+        border-radius: 3px;
+    }
+    
+    @keyframes float {
+        0% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0); }
+    }
+    
+    .float-element {
+        animation: float 4s ease-in-out infinite;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h2">
-            <i class="fas fa-chair me-2"></i>Tables - {{ current_user.restaurant_name or current_user.name }}
-        </h1>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTableModal">
-            <i class="fas fa-plus me-2"></i>Add Table
+<div class="container mt-4">
+    <div class="section-header">
+        <h1 class="section-title">My Tables</h1>
+        <button class="btn btn-primary btn-table-action" id="addTableBtn">
+            <i class="fas fa-plus me-2"></i>Add New Table
         </button>
     </div>
-
-    <div class="row g-4">
+    
+    {% if tables %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 table-container">
         {% for table in tables %}
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 table-card">
-                <div class="card-body position-relative">
-                    <span class="status-badge badge {% if table.is_occupied %}bg-danger{% else %}bg-success{% endif %}">
-                        {{ 'Occupied' if table.is_occupied else 'Available' }}
-                    </span>
-                    
-                    <h5 class="card-title text-center mb-4">Table {{ table.number }}</h5>
-                    
-                    <div class="qr-code-container mb-4">
-                        {% if table.qr_code %}
-                        <img src="{{ table.qr_code }}" alt="QR Code for Table {{ table.number }}" class="img-fluid">
-                        <div class="qr-code-overlay">
-                            <div class="d-flex flex-column">
-                                <a href="{{ table.qr_code }}" download="QR_{{ current_user.restaurant_name or current_user.name }}_Table_{{ table.number }}.png" class="btn btn-light btn-sm mb-2">
-                                    <i class="fas fa-download me-2"></i>Download
-                                </a>
-                                <button class="btn btn-light btn-sm" onclick="refreshQRCode({{ table.id }})">
-                                    <i class="fas fa-sync-alt me-2"></i>Refresh QR
-                                </button>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-4 bg-light">
-                            <i class="fas fa-qrcode fa-3x text-muted mb-2"></i>
-                            <p class="mb-0">No QR Code</p>
-                            <button class="btn btn-primary btn-sm mt-2" onclick="refreshQRCode({{ table.id }})">
-                                <i class="fas fa-sync-alt me-2"></i>Generate QR
-                            </button>
-                        </div>
-                        {% endif %}
+        <div class="col">
+            <div class="card table-card">
+                <div class="card-header">
+                    <h5 class="card-title">Table {{ table.number }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-info">
+                        <div><i class="fas fa-info-circle me-2 text-primary"></i>Table ID: {{ table.id }}</div>
+                        <div><i class="fas fa-calendar-alt me-2 text-primary"></i>Created: {{ table.created_at.strftime('%Y-%m-%d') }}</div>
                     </div>
                     
-                    <div class="text-center mb-4">
-                        <p class="mb-2">
-                            <i class="fas fa-users me-2"></i>Capacity: {{ table.capacity }} people
-                        </p>
-                        {% if table.qr_code %}
-                        <p class="small text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Scan to open digital menu
-                        </p>
-                        {% endif %}
+                    <div class="qr-container">
+                        <img src="{{ url_for('static', filename='qr_codes/' + table.qr_code) }}" alt="QR Code for Table {{ table.number }}" class="qr-code-img">
                     </div>
                     
-                    <div class="d-flex justify-content-center gap-2">
-                        <button class="btn btn-outline-primary" onclick="editTable({{ table.id }}, {{ table.number }}, {{ table.capacity }})">
-                            <i class="fas fa-edit me-2"></i>Edit
+                    <div class="table-actions">
+                        <button class="btn btn-outline-primary btn-table-action" onclick="refreshQRCode({{ table.id }})">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh QR
                         </button>
-                        <button class="btn {% if table.is_occupied %}btn-danger{% else %}btn-success{% endif %}"
-                                onclick="toggleTable({{ table.id }})">
-                            <i class="fas {% if table.is_occupied %}fa-times{% else %}fa-check{% endif %} me-2"></i>
-                            {{ 'Mark Available' if table.is_occupied else 'Mark Occupied' }}
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="deleteTable({{ table.id }})">
-                            <i class="fas fa-trash me-2"></i>Delete
+                        <button class="btn btn-outline-danger btn-table-action" onclick="deleteTable({{ table.id }})">
+                            <i class="fas fa-trash-alt me-2"></i>Delete
                         </button>
                     </div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="col-12">
-            <div class="text-center py-5">
-                <i class="fas fa-chair fa-3x text-muted mb-3"></i>
-                <h3>No Tables Yet</h3>
-                <p class="text-muted">Add your first table to get started!</p>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTableModal">
-                    <i class="fas fa-plus me-2"></i>Add Table
-                </button>
+        {% endfor %}
+        
+        <div class="col">
+            <div class="add-table-card" onclick="document.getElementById('addTableBtn').click()">
+                <div class="add-table-icon float-element">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <h3>Add New Table</h3>
+                <p class="text-center mb-0">Click to add a new table to your restaurant</p>
             </div>
         </div>
-        {% endfor %}
     </div>
+    {% else %}
+    <div class="no-tables-message">
+        <i class="fas fa-table float-element"></i>
+        <h3>No Tables Added Yet</h3>
+        <p class="mb-4">Add tables to generate QR codes for your customers</p>
+        <button class="btn btn-primary btn-lg btn-table-action" id="addTableBtn">
+            <i class="fas fa-plus me-2"></i>Add Your First Table
+        </button>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Add Table Modal -->
-<div class="modal fade" id="addTableModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="addTableModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-plus me-2"></i>Add New Table
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title">Add New Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="addTableForm">
                     <div class="mb-3">
                         <label for="tableNumber" class="form-label">Table Number</label>
-                        <input type="number" class="form-control" id="tableNumber" required min="1">
-                    </div>
-                    <div class="mb-3">
-                        <label for="capacity" class="form-label">Capacity</label>
-                        <input type="number" class="form-control" id="capacity" required min="1" value="4">
+                        <input type="number" class="form-control" id="tableNumber" min="1" required>
+                        <div class="form-text">Enter a unique number for this table.</div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
                 <button type="button" class="btn btn-primary" onclick="addTable()">
                     <i class="fas fa-plus me-2"></i>Add Table
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Table Modal -->
-<div class="modal fade" id="editTableModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-edit me-2"></i>Edit Table
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editTableForm">
-                    <input type="hidden" id="editTableId">
-                    <div class="mb-3">
-                        <label for="editTableNumber" class="form-label">Table Number</label>
-                        <input type="number" class="form-control" id="editTableNumber" required min="1">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editCapacity" class="form-label">Capacity</label>
-                        <input type="number" class="form-control" id="editCapacity" required min="1">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="updateTable()">
-                    <i class="fas fa-save me-2"></i>Save Changes
                 </button>
             </div>
         </div>
@@ -208,188 +312,138 @@
 
 {% block extra_js %}
 <script>
-// Add table
-function addTable() {
-    const number = document.getElementById('tableNumber').value;
-    const capacity = document.getElementById('capacity').value;
+    // Initialize modal
+    const addTableModal = new bootstrap.Modal(document.getElementById('addTableModal'));
     
-    fetch('/table/add', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            number: parseInt(number),
-            capacity: parseInt(capacity)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error adding table');
+    // Show modal when "Add Table" button is clicked
+    document.getElementById('addTableBtn').addEventListener('click', function() {
+        addTableModal.show();
     });
-}
-
-// Edit table
-function editTable(id, number, capacity) {
-    document.getElementById('editTableId').value = id;
-    document.getElementById('editTableNumber').value = number;
-    document.getElementById('editCapacity').value = capacity;
     
-    new bootstrap.Modal(document.getElementById('editTableModal')).show();
-}
-
-// Update table
-function updateTable() {
-    const id = document.getElementById('editTableId').value;
-    const number = document.getElementById('editTableNumber').value;
-    const capacity = document.getElementById('editCapacity').value;
-    
-    fetch(`/table/update/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            number: parseInt(number),
-            capacity: parseInt(capacity)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating table');
-    });
-}
-
-// Delete table
-function deleteTable(id) {
-    if (confirm('Are you sure you want to delete this table?')) {
-        fetch(`/table/delete/${id}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error deleting table');
-        });
-    }
-}
-
-// Toggle table status
-function toggleTable(id) {
-    fetch(`/table/toggle/${id}`, {
-        method: 'PUT'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error toggling table status');
-    });
-}
-
-// Refresh QR code
-function refreshQRCode(id) {
-    const loadingBtn = event.target.closest('button');
-    const originalText = loadingBtn.innerHTML;
-    loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
-    loadingBtn.disabled = true;
-    
-    fetch(`/table/qr/${id}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert(`QR code for ${data.restaurant_name} - Table ${data.table_number} generated successfully`, 'success');
+    document.addEventListener('DOMContentLoaded', function() {
+        // When the page is loaded, ensure the window functions are available
+        if (typeof window.addTable !== 'function') {
+            console.log("Initializing window functions");
             
-            // Instead of reloading the page, update the QR code image
-            const imgContainer = loadingBtn.closest('.qr-code-container');
-            
-            if (imgContainer) {
-                // For existing QR code
-                const img = imgContainer.querySelector('img');
-                if (img) {
-                    img.src = data.qr_code + '?t=' + new Date().getTime(); // Add timestamp to prevent caching
-                } else {
-                    // For new QR code (when none existed)
-                    imgContainer.innerHTML = `
-                        <img src="${data.qr_code}" alt="QR Code for Table ${data.table_number}" class="img-fluid">
-                        <div class="qr-code-overlay">
-                            <div class="d-flex flex-column">
-                                <a href="${data.qr_code}" download="QR_${data.restaurant_name}_Table_${data.table_number}.png" class="btn btn-light btn-sm mb-2">
-                                    <i class="fas fa-download me-2"></i>Download
-                                </a>
-                                <button class="btn btn-light btn-sm" onclick="refreshQRCode(${id})">
-                                    <i class="fas fa-sync-alt me-2"></i>Refresh QR
-                                </button>
-                            </div>
-                        </div>
-                    `;
+            window.addTable = function() {
+                // Get table number
+                const tableNumber = document.getElementById('tableNumber').value;
+                if (!tableNumber) {
+                    showAlert('Please enter a table number', 'danger');
+                    return;
                 }
-            }
-        } else {
-            showAlert(data.message || 'Error generating QR code', 'danger');
+                
+                // Close modal
+                addTableModal.hide();
+                
+                // Show loading indicator
+                showAlert('Creating table...', 'info');
+                
+                // AJAX request to add table
+                fetch('/api/tables', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ number: tableNumber })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Table added successfully!', 'success');
+                        // Reload page to show new table
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showAlert(data.message || 'Failed to add table', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('An error occurred while adding the table', 'danger');
+                });
+            };
+            
+            window.deleteTable = function(tableId) {
+                if (confirm('Are you sure you want to delete this table? This will also delete the QR code.')) {
+                    showAlert('Deleting table...', 'info');
+                    
+                    fetch(`/api/tables/${tableId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showAlert('Table deleted successfully!', 'success');
+                            // Find and remove the table card
+                            const tableCard = document.querySelector(`.card[data-table-id="${tableId}"]`).closest('.col');
+                            if (tableCard) {
+                                tableCard.remove();
+                            } else {
+                                // Reload page if card can't be found
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1000);
+                            }
+                        } else {
+                            showAlert(data.message || 'Failed to delete table', 'danger');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showAlert('An error occurred while deleting the table', 'danger');
+                    });
+                }
+            };
+            
+            window.refreshQRCode = function(tableId) {
+                showAlert('Refreshing QR code...', 'info');
+                
+                fetch(`/api/tables/${tableId}/refresh_qr`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('QR code refreshed successfully!', 'success');
+                        // Reload page to show new QR code
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showAlert(data.message || 'Failed to refresh QR code', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('An error occurred while refreshing the QR code', 'danger');
+                });
+            };
+            
+            // Test auto-add function for demo
+            window.autoAddTable = function() {
+                // Find the highest table number
+                const tables = document.querySelectorAll('.card-title');
+                let maxNumber = 0;
+                
+                tables.forEach(table => {
+                    const match = table.textContent.match(/Table (\d+)/);
+                    if (match && match[1]) {
+                        const num = parseInt(match[1]);
+                        if (num > maxNumber) {
+                            maxNumber = num;
+                        }
+                    }
+                });
+                
+                // Set the next table number
+                document.getElementById('tableNumber').value = maxNumber + 1;
+                
+                // Add the table
+                addTable();
+            };
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('Error generating QR code', 'danger');
-    })
-    .finally(() => {
-        loadingBtn.innerHTML = originalText;
-        loadingBtn.disabled = false;
     });
-}
-
-// Show success message
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            showAlert('{{ message }}', '{{ category }}');
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
-function showAlert(message, type = 'success') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-    alertDiv.style.zIndex = '1050';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.body.appendChild(alertDiv);
-    
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
-}
 </script>
 {% endblock %} 

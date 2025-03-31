@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta name="vapid-public-key" content="{{ vapid_public_key }}">
-    <title>{% block title %}Digital Waiter{% endblock %}</title>
+    <title>{% block title %}Digital Waiter{% endblock %} - Ghibli Style</title>
     
     <!-- Favicon -->
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,10 +20,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-    <!-- Socket.IO client library -->
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <!-- Socket-Notifications CSS -->
-    <link href="{{ url_for('static', filename='css/socket-notifications.css') }}" rel="stylesheet">
     
     {% block extra_css %}{% endblock %}
 
@@ -50,8 +50,17 @@
             margin-right: 0.25rem;
         }
     </style>
+    
+    {% block styles %}{% endblock %}
 </head>
 <body>
+    <!-- Ghibli-style clouds -->
+    <div class="ghibli-clouds">
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
@@ -65,21 +74,39 @@
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('menu.manage') }}">
-                            <i class="fas fa-book-open me-1"></i>Menu
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('table.table_list') }}">
                             <i class="fas fa-chair me-1"></i>Tables
                         </a>
                     </li>
-                    <li class="nav-item">
-                        {% set restaurant_name = current_user.restaurant_name or current_user.name %}
-                        {% set restaurant_slug = restaurant_name.lower().replace(' ', '-') %}
-                        <a class="nav-link" href="{{ url_for('orders.orders_page', restaurant_slug=restaurant_slug) }}">
-                            <i class="fas fa-clipboard-list me-1"></i>Orders
+                    <li class="nav-item d-flex align-items-center dropdown">
+                        <a 
+                            href="#" 
+                            class="nav-link dropdown-toggle {% if request.path.startswith('/orders') 
+                                or request.path.startswith('/restaurant/orders') %}active{% endif %}"
+                            id="ordersDropdown" 
+                            role="button" 
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false"
+                        >
+                            <i class="fas fa-shopping-cart menu-icon"></i> Orders
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="ordersDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('orders.orders_page', restaurant_slug=current_user.restaurant_name|default(current_user.name)|lower|replace(' ', '-')) }}">
+                                    <i class="fas fa-fire me-2"></i>Active Orders
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('orders.get_order_history', restaurant_slug=current_user.restaurant_name|default(current_user.name)|lower|replace(' ', '-')) }}">
+                                    <i class="fas fa-list me-2"></i>All Orders
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('orders.all_restaurant_receipts') }}">
+                                    <i class="fas fa-receipt me-2"></i>All Receipts
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         {% set restaurant_name = current_user.restaurant_name or current_user.name %}
@@ -94,7 +121,7 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('auth.register') }}">
+                                <a class="dropdown-item" href="{{ url_for('profile.profile') }}">
                                     <i class="fas fa-user-cog me-2"></i>Profile
                                 </a>
                             </li>
@@ -140,11 +167,6 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Notification sound element (hidden) -->
-    <audio id="notificationSound" preload="auto" style="display: none;">
-        <source src="{{ url_for('static', filename='sounds/notification.mp3') }}" type="audio/mpeg">
-    </audio>
-
     <!-- Footer -->
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container text-center">
@@ -158,9 +180,6 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <!-- Socket.IO notifications manager -->
-    <script src="{{ url_for('static', filename='js/socket_notifications.js') }}"></script>
-    {% block extra_js %}{% endblock %}
 
     <!-- Initialize Bootstrap Tooltips and Popovers -->
     <script>
@@ -178,5 +197,222 @@
             });
         });
     </script>
+
+    <!-- Nature footer element -->
+    <div class="nature-footer"></div>
+
+    <!-- Small decorative elements -->
+    <div class="ghibli-sprites">
+        <div class="soot-sprite sprite-1"></div>
+        <div class="soot-sprite sprite-2"></div>
+        <div class="soot-sprite sprite-3"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block scripts %}
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <!-- Bootstrap bundle with Popper -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Font Awesome -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/js/all.min.js"></script>
+        <!-- Socket.io -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+        <!-- Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- Custom JS -->
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        
+        <!-- Additional scripts can be added in templates that extend this one -->
+        {% block additional_scripts %}{% endblock %}
+    {% endblock %}
+
+    <style>
+        /* Ghibli Cloud Animation */
+        .ghibli-clouds {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 100px;
+            opacity: 0.8;
+        }
+        
+        .cloud-1 {
+            width: 200px;
+            height: 60px;
+            top: 25px;
+            left: 10%;
+            animation: float-cloud 30s linear infinite;
+        }
+        
+        .cloud-2 {
+            width: 300px;
+            height: 80px;
+            top: 50px;
+            left: 50%;
+            animation: float-cloud 45s linear infinite;
+        }
+        
+        .cloud-3 {
+            width: 150px;
+            height: 40px;
+            top: 80px;
+            left: 80%;
+            animation: float-cloud 25s linear infinite;
+        }
+        
+        .cloud:before, .cloud:after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        
+        .cloud-1:before {
+            width: 90px;
+            height: 90px;
+            top: -30px;
+            left: 25px;
+        }
+        
+        .cloud-1:after {
+            width: 70px;
+            height: 70px;
+            top: -20px;
+            right: 25px;
+        }
+        
+        .cloud-2:before {
+            width: 120px;
+            height: 120px;
+            top: -40px;
+            left: 40px;
+        }
+        
+        .cloud-2:after {
+            width: 100px;
+            height: 100px;
+            top: -30px;
+            right: 40px;
+        }
+        
+        .cloud-3:before {
+            width: 70px;
+            height: 70px;
+            top: -25px;
+            left: 20px;
+        }
+        
+        .cloud-3:after {
+            width: 50px;
+            height: 50px;
+            top: -15px;
+            right: 20px;
+        }
+        
+        @keyframes float-cloud {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(calc(100vw + 300px));
+            }
+        }
+
+        /* Soot sprites */
+        .ghibli-sprites {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            z-index: -1;
+        }
+        
+        .soot-sprite {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+        
+        .soot-sprite:before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 3px;
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 10px 0 0 white;
+        }
+        
+        .sprite-1 {
+            bottom: 30px;
+            left: 10%;
+            animation: bounce 3s ease-in-out infinite;
+        }
+        
+        .sprite-2 {
+            bottom: 50px;
+            left: 20%;
+            animation: bounce 4s ease-in-out 1s infinite;
+        }
+        
+        .sprite-3 {
+            bottom: 40px;
+            left: 30%;
+            animation: bounce 3.5s ease-in-out 0.5s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+        
+        /* Animated dropdown menu */
+        .dropdown-menu.animate {
+            animation-duration: 0.3s;
+            -webkit-animation-duration: 0.3s;
+            animation-fill-mode: both;
+            -webkit-animation-fill-mode: both;
+        }
+        
+        @keyframes slideIn {
+            0% {
+                transform: translateY(1rem);
+                opacity: 0;
+            }
+            100% {
+                transform: translateY(0rem);
+                opacity: 1;
+            }
+            0% {
+                transform: translateY(1rem);
+                opacity: 0;
+            }
+        }
+        
+        .slideIn {
+            -webkit-animation-name: slideIn;
+            animation-name: slideIn;
+        }
+    </style>
 </body>
 </html> 

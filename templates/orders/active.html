@@ -171,9 +171,13 @@ function renderOrders() {
               Order #${order.id}
             </h5>
             <div class="no-print">
-              <button class="btn btn-sm btn-outline-primary" onclick="window.open('/order/${order.id}/receipt', '_blank')">
+              <button class="btn btn-sm btn-outline-primary me-1" onclick="window.open('/order/${order.id}/receipt', '_blank')">
                 <i class="fas fa-print"></i>
               </button>
+              ${order.status === 'pending' || order.status === 'preparing' ? 
+                `<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder(${order.id})">
+                  <i class="fas fa-times"></i>
+                </button>` : ''}
             </div>
           </div>
           <div class="card-body" id="order-${order.id}">
@@ -307,6 +311,35 @@ async function updateOrderStatus(orderId, status) {
   } catch (error) {
     console.error('Error:', error);
     showAlert('Failed to update order status. Please try again.', 'danger');
+  }
+}
+
+// Cancel order
+async function cancelOrder(orderId) {
+  if (!confirm('Are you sure you want to cancel this order? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showAlert(`Order #${orderId} has been cancelled`, 'success');
+      await fetchActiveOrders(); // Refresh the orders list
+    } else {
+      showAlert(data.message || 'Error cancelling order', 'danger');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showAlert('Failed to cancel order. Please try again.', 'danger');
   }
 }
 

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
-from models import MenuItem, db, Table, User
+from models import MenuItem, db, Table, User, MenuCategory
 from utils.ai_helper import analyze_menu_text, generate_item_description, analyze_menu_image
 import qrcode
 import os
@@ -9,6 +9,7 @@ import pytesseract
 from werkzeug.utils import secure_filename
 import json
 from datetime import datetime
+from routes.orders import get_restaurant_by_slug, slugify
 
 menu_bp = Blueprint('menu', __name__)
 
@@ -190,6 +191,11 @@ def view_menu(table_id):
         # Get the table and validate it exists
         table = Table.query.get_or_404(table_id)
         
+        # Ensure table.id is set
+        if not hasattr(table, 'id') or not table.id:
+            current_app.logger.error(f"Table {table_id} has no valid ID")
+            return render_template('error.html', message="Invalid table configuration")
+        
         # Get the restaurant owner's information
         restaurant = User.query.get_or_404(table.user_id)
         
@@ -220,13 +226,15 @@ def view_menu(table_id):
         for category in sorted_categories:
             category['menu_items'].sort(key=lambda x: x['name'])
         
+        current_app.logger.info(f"Rendering menu for table ID: {table.id}, number: {table.number}")
+        
         return render_template('menu/view.html',
                              restaurant=restaurant,
                              table=table,
                              categories=sorted_categories)
         
     except Exception as e:
-        print(f"Error viewing menu: {e}")
+        current_app.logger.error(f"Error viewing menu: {e}")
         abort(500)
 
 @menu_bp.route('/menu/qr/<int:table_id>')
@@ -279,6 +287,73 @@ def generate_qr(table_id):
         current_app.logger.error(f"Error generating QR code: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@menu_bp.route('/r/<restaurant_slug>/table/<int:table_id>')
+def view_menu_with_restaurant(restaurant_slug, table_id):
+    """View menu for a specific restaurant and table - used by QR codes."""
+    try:
+        # Get the restaurant by slug
+        restaurant = get_restaurant_by_slug(restaurant_slug)
+        
+        if not restaurant:
+            return render_template('error.html', message="Restaurant not found")
+            
+        # Get the table
+        table = Table.query.get(table_id)
+        if not table:
+            return render_template('error.html', message="Table not found")
+            
+        # Verify table belongs to restaurant
+        if table.user_id != restaurant.id:
+            return render_template('error.html', message="Invalid table for this restaurant")
+            
+        # Get all available menu items for this restaurant
+        menu_items = MenuItem.query.filter_by(
+            user_id=restaurant.id,
+            is_available=True
+        ).all()
+        
+        # Group menu items by category
+        categories = {}
+        for item in menu_items:
+            category = item.category or 'Uncategorized'
+            if category not in categories:
+                categories[category] = {
+                    'id': len(categories) + 1,
+                    'name': category,
+                    'menu_items': []
+                }
+            # Convert MenuItem object to dictionary for JSON serialization
+            item_dict = item.to_dict()
+            # Add reference to the original id for the template
+            item_dict['original_id'] = item.id
+            categories[category]['menu_items'].append(item_dict)
+        
+        # Sort categories and menu items
+        sorted_categories = sorted(categories.values(), key=lambda x: x['name'])
+        for category in sorted_categories:
+            category['menu_items'].sort(key=lambda x: x['name'])
+        
+        # Get restaurant data
+        restaurant_data = {
+            'id': restaurant.id,
+            'name': restaurant.restaurant_name or restaurant.name,
+            'description': restaurant.description if hasattr(restaurant, 'description') else '',
+            'logo': restaurant.logo if hasattr(restaurant, 'logo') else None
+        }
+        
+        current_app.logger.info(f"Rendering menu for table ID: {table.id}, number: {table.number}")
+        
+        return render_template(
+            'menu/view.html',
+            restaurant=restaurant_data,
+            categories=sorted_categories,
+            table=table  # Pass the complete table object
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Error viewing menu: {str(e)}")
+        return render_template('error.html', message="An error occurred while loading the menu")
+
 def process_menu_text(text):
     # Simple menu text processing logic
     # This can be enhanced with more sophisticated NLP processing
@@ -311,3 +386,106 @@ def process_menu_text(text):
                     continue
                     
     return menu_items 
+
+# Customer-facing menu views with restaurant slug
+@menu_bp.route('/menu/<restaurant_slug>/view/<int:table_id>')
+def view_menu_by_slug(restaurant_slug, table_id):
+    """View menu for a specific restaurant and table using slug."""
+    try:
+        # Get the restaurant by slug
+        restaurant = get_restaurant_by_slug(restaurant_slug)
+        
+        if not restaurant:
+            return render_template('error.html', message="Restaurant not found")
+            
+        # Get the table
+        table = Table.query.get(table_id)
+        if not table:
+            return render_template('error.html', message="Table not found")
+            
+        # Verify table belongs to restaurant
+        if table.user_id != restaurant.id:
+            return render_template('error.html', message="Invalid table for this restaurant")
+            
+        # Get all available menu items for this restaurant
+        menu_items = MenuItem.query.filter_by(
+            user_id=restaurant.id,
+            is_available=True
+        ).all()
+        
+        # Group menu items by category
+        categories = {}
+        for item in menu_items:
+            category = item.category or 'Uncategorized'
+            if category not in categories:
+                categories[category] = {
+                    'id': len(categories) + 1,
+                    'name': category,
+                    'menu_items': []
+                }
+            # Convert MenuItem object to dictionary for JSON serialization
+            item_dict = item.to_dict()
+            # Add reference to the original id for the template
+            item_dict['original_id'] = item.id
+            categories[category]['menu_items'].append(item_dict)
+        
+        # Sort categories and menu items
+        sorted_categories = sorted(categories.values(), key=lambda x: x['name'])
+        for category in sorted_categories:
+            category['menu_items'].sort(key=lambda x: x['name'])
+        
+        # Get restaurant data
+        restaurant_data = {
+            'id': restaurant.id,
+            'name': restaurant.restaurant_name or restaurant.name,
+            'description': restaurant.description if hasattr(restaurant, 'description') else '',
+            'logo': restaurant.logo_url if hasattr(restaurant, 'logo_url') else None,
+            'qr_code': restaurant.qr_code if hasattr(restaurant, 'qr_code') else None,
+            'phone': restaurant.phone if hasattr(restaurant, 'phone') else None
+        }
+        
+        current_app.logger.info(f"Rendering menu for table ID: {table.id}, number: {table.number}")
+        
+        return render_template(
+            'menu/view.html',
+            restaurant=restaurant_data,
+            categories=sorted_categories,
+            table=table,
+            restaurant_slug=restaurant_slug
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Error viewing menu: {str(e)}")
+        return render_template('error.html', message="An error occurred while loading the menu")
+
+# Shorthand URL for restaurant/table
+@menu_bp.route('/r/<restaurant_slug>/t/<int:table_id>')
+def view_menu_shorthand(restaurant_slug, table_id):
+    """Short URL for viewing menu for a specific restaurant and table."""
+    return redirect(url_for('menu.view_menu_by_slug', restaurant_slug=restaurant_slug, table_id=table_id))
+
+# Route for backward compatibility
+@menu_bp.route('/menu/view/<int:table_id>')
+def view_menu_by_id(table_id):
+    """View menu for a specific table (redirect to slug-based URL)."""
+    try:
+        # Get the table
+        table = Table.query.get(table_id)
+        if not table:
+            return render_template('error.html', message="Table not found")
+            
+        # Get the restaurant
+        restaurant = User.query.get(table.user_id)
+        if not restaurant:
+            return render_template('error.html', message="Restaurant not found")
+            
+        # Generate slug
+        restaurant_name = restaurant.restaurant_name or restaurant.name
+        restaurant_slug = slugify(restaurant_name)
+        
+        # Redirect to slug-based URL
+        return redirect(url_for('menu.view_menu_by_slug', restaurant_slug=restaurant_slug, table_id=table_id))
+        
+    except Exception as e:
+        current_app.logger.error(f"Error redirecting to menu: {str(e)}")
+        return render_template('error.html', message="An error occurred while loading the menu") 

@@ -1,10 +1,10 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import Order, OrderItem, MenuItem, Table, Feedback, db, User
 from datetime import datetime
 import json
-from routes.socket_notifications import notify_restaurant_new_order, notify_customer_order_status
 import re
+from extensions import socketio
 
 orders = Blueprint('orders', __name__)
 
@@ -121,64 +121,81 @@ def restaurant_menu_by_id(restaurant_id):
     restaurant_slug = slugify(restaurant_name)
     return redirect(url_for('orders.restaurant_menu', restaurant_slug=restaurant_slug))
     
-@orders.route('/api/orders', methods=['POST'])
+@orders.route('/create', methods=['POST'])
 def create_order():
-    """Create a new order for a table."""
     data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
     
-    # Validate the request data
-    if not data or 'table_id' not in data or 'items' not in data:
-        return jsonify({'success': False, 'message': 'Invalid request data'}), 400
-    
-    # Check if the table exists
-    table = Table.query.get(data['table_id'])
+    # Check if table exists
+    table_id = data.get('table_id')
+    table = Table.query.get(table_id)
     if not table:
-        return jsonify({'success': False, 'message': 'Table not found'}), 404
+        return jsonify({'error': 'Table not found'}), 404
     
-    # Create the order
+    # Get current user
+    current_user = User.query.get(session.get('user_id'))
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    # Create order
     order = Order(
-        table_id=table.id,
-        user_id=table.user_id,
-        status='pending',
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        user_id=current_user.id,
+        table_id=table_id,
+        payment_method=data.get('payment_method', 'later'),
+        special_instructions=data.get('special_instructions', ''),
+        customer_name=data.get('customer_name', ''),
+        customer_phone=data.get('customer_phone', '')
     )
     
+    db.session.add(order)
+    db.session.flush()  # Get order ID
+    
     # Add order items
-    for item_data in data['items']:
-        menu_item = MenuItem.query.get(item_data['menu_item_id'])
+    items = data.get('items', [])
+    total_amount = 0
+    
+    for item_data in items:
+        menu_item = MenuItem.query.get(item_data.get('id'))
         if not menu_item:
-            return jsonify({'success': False, 'message': f'Menu item {item_data["menu_item_id"]} not found'}), 404
+            continue
+        
+        quantity = item_data.get('quantity', 1)
+        price = menu_item.price
+        subtotal = price * quantity
+        total_amount += subtotal
         
         order_item = OrderItem(
+            order_id=order.id,
             menu_item_id=menu_item.id,
-            quantity=item_data['quantity'],
-            unit_price=menu_item.price
+            quantity=quantity,
+            price=price,
+            subtotal=subtotal
         )
-        order.items.append(order_item)
+        db.session.add(order_item)
     
-    # Calculate total
-    total = sum(item.unit_price * item.quantity for item in order.items)
-    order.total_amount = total
-    order.tax_amount = round(total * 0.08, 2)  # 8% tax
+    # Calculate totals
+    order.total_amount = total_amount
+    order.tax_amount = total_amount * 0.1  # 10% tax
     order.final_amount = order.total_amount + order.tax_amount
     
-    # Save the order to the database
-    db.session.add(order)
+    # Process payment if payment method is 'now'
+    if order.payment_method == 'now':
+        # Payment processing logic would go here
+        # For demo, we'll just mark it as paid
+        order.payment_status = 'paid'
+    
     db.session.commit()
     
-    # Send notification about new order
-    try:
-        notify_restaurant_new_order(order)
-        current_app.logger.info(f"Socket.IO notification sent for new order #{order.id}")
-    except Exception as e:
-        current_app.logger.error(f"Error sending Socket.IO notification for new order #{order.id}: {e}")
+    # Generate receipt URL
+    receipt_url = url_for('orders.order_receipt', order_id=order.id, _external=True)
     
+    flash('Order created successfully!', 'success')
     return jsonify({
         'success': True,
-        'message': 'Order created successfully',
-        'order_id': order.id
-    })
+        'order_id': order.id,
+        'receipt_url': receipt_url
+    }), 201
 
 @orders.route('/api/orders/<int:order_id>/status', methods=['PUT'])
 @login_required
@@ -219,77 +236,38 @@ def update_order_status(order_id):
     if new_status == 'completed' and not order.completed_at:
         order.completed_at = datetime.utcnow()
         
-        # If total_amount is not set, calculate it from items
-        if not order.total_amount or order.total_amount == 0:
-            total = 0
-            for item in order.items:
-                total += item.unit_price * item.quantity
-            order.total_amount = total
-            
-            # Set default tax and final amount if needed
-            if not order.tax_amount:
-                order.tax_amount = round(total * 0.08, 2)  # 8% tax as default
-            if not order.final_amount:
-                order.final_amount = order.total_amount + order.tax_amount
+    # Save the order to the database
+    db.session.commit()
     
+    # Log the status update
+    current_app.logger.info(f"Order #{order.id} status updated from '{old_status}' to '{new_status}'")
+    
+    # Send notifications via Socket.IO
     try:
-        db.session.commit()
+        # Import notification functions
+        from routes.socket_notifications import notify_restaurant_order_status, notify_customer_order_status
         
-        # Send notification to customer about order status update
-        try:
-            notify_customer_order_status(order, new_status)
-            current_app.logger.info(f"Socket.IO notification sent for order #{order.id} status update to {new_status}")
-        except Exception as e:
-            current_app.logger.error(f"Error sending Socket.IO notification for order status update: {e}")
+        # Notify restaurant about status change
+        notify_restaurant_order_status(order, new_status, old_status)
         
-        return jsonify({
-            'success': True,
-            'message': f'Order status updated to {new_status}',
-            'order_id': order.id,
-            'old_status': old_status,
-            'new_status': new_status
-        })
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error updating order status: {e}")
-        return jsonify({'success': False, 'message': f'Error updating order: {str(e)}'}), 500
-
-@orders.route('/api/table/<int:table_id>/orders')
-def get_table_orders(table_id):
-    """Get all active orders for a table."""
-    # Get active orders for the table
-    active_orders = Order.query.filter(
-        Order.table_id == table_id,
-        Order.status.in_(['pending', 'preparing', 'ready'])
-    ).order_by(Order.created_at.desc()).all()
+        # Notify customer about status change
+        notify_customer_order_status(order, new_status, old_status)
+    except Exception as notification_error:
+        current_app.logger.error(f"Error sending notification for status update: {notification_error}")
     
-    orders_data = []
-    for order in active_orders:
-        items_data = []
-        for item in order.items:
-            items_data.append({
-                'id': item.id,
-                'name': item.menu_item.name,
-                'quantity': item.quantity,
-                'price': float(item.price)
-            })
-        
-        orders_data.append({
-            'id': order.id,
-            'status': order.status,
-            'created_at': order.created_at.isoformat(),
-            'updated_at': order.updated_at.isoformat() if hasattr(order, 'updated_at') and order.updated_at else None,
-            'items': items_data
-        })
-    
-    return jsonify({'success': True, 'orders': orders_data})
+    return jsonify({
+        'success': True, 
+        'message': f'Order status updated to {new_status}',
+        'order_id': order.id,
+        'status': new_status
+    })
 
-@orders.route('/api/restaurant/active-orders')
+@orders.route('/api/active-orders')
 @login_required
 def get_active_orders():
-    """Get all active orders for the restaurant."""
+    """Get active orders for the restaurant."""
     try:
-        # Get all active orders for the restaurant
+        # Query active orders
         active_orders = Order.query.filter(
             Order.user_id == current_user.id,
             Order.status.in_(['pending', 'preparing', 'ready'])
@@ -298,70 +276,51 @@ def get_active_orders():
         # Format orders for JSON response
         orders_data = []
         for order in active_orders:
-            # Get order items data
-            items_data = []
-            for item in order.items:
-                try:
-                    menu_item = MenuItem.query.get(item.menu_item_id)
-                    if menu_item:
-                        items_data.append({
-                            'id': item.id,
-                            'name': menu_item.name,
-                            'quantity': item.quantity,
-                            'price': float(item.unit_price) if item.unit_price else 0.0
-                        })
-                except Exception as e:
-                    current_app.logger.error(f"Error processing menu item: {str(e)}")
-            
-            # Get table information safely
+            # Get table number
             table_number = "Unknown"
             if order.table:
-                try:
-                    table_number = order.table.number
-                except Exception as e:
-                    current_app.logger.error(f"Error getting table number: {str(e)}")
+                table_number = order.table.number
+                
+            # Format order items
+            items = []
+            for item in order.items:
+                menu_item_name = "Unknown"
+                if item.menu_item:
+                    menu_item_name = item.menu_item.name
+                    
+                items.append({
+                    'id': item.id,
+                    'name': menu_item_name,
+                    'quantity': item.quantity,
+                    'unit_price': float(item.unit_price)
+                })
+                
+            # Add order to response
+            orders_data.append({
+                'id': order.id,
+                'table_id': order.table_id,
+                'table_number': table_number,
+                'status': order.status,
+                'customer_phone': order.customer_phone,
+                'payment_method': order.payment_method,
+                'payment_status': order.payment_status,
+                'special_instructions': order.special_instructions,
+                'items': items,
+                'total_amount': float(order.total_amount) if order.total_amount else 0,
+                'tax_amount': float(order.tax_amount) if order.tax_amount else 0,
+                'final_amount': float(order.final_amount) if order.final_amount else 0,
+                'created_at': order.created_at.isoformat(),
+                'updated_at': order.updated_at.isoformat()
+            })
             
-            # Calculate total price safely
-            try:
-                total_amount = sum(item.unit_price * item.quantity for item in order.items if item.unit_price)
-            except Exception as e:
-                current_app.logger.error(f"Error calculating total amount: {str(e)}")
-                total_amount = 0
-            
-            # Format order data
-            try:
-                order_data = {
-                    'id': order.id,
-                    'table_id': order.table_id,
-                    'table_number': table_number,
-                    'status': order.status,
-                    'created_at': order.created_at.isoformat() if order.created_at else datetime.utcnow().isoformat(),
-                    'updated_at': order.updated_at.isoformat() if order.updated_at else order.created_at.isoformat() if order.created_at else datetime.utcnow().isoformat(),
-                    'total_amount': float(total_amount),
-                    'items': items_data
-                }
-                orders_data.append(order_data)
-                current_app.logger.info(f"Added order {order.id} to response data")
-            except Exception as e:
-                current_app.logger.error(f"Error formatting order data: {str(e)}")
-        
-        # Return success response
-        current_app.logger.info(f"Returning {len(orders_data)} active orders")
         return jsonify({
-            'success': True, 
-            'orders': orders_data,
-            'restaurant_id': current_user.id,
-            'restaurant_name': current_user.restaurant_name or current_user.name
+            'success': True,
+            'orders': orders_data
         })
-    
+        
     except Exception as e:
-        # Log the error and return error response
-        current_app.logger.error(f"Error fetching active orders: {str(e)}")
-        return jsonify({
-            'success': False, 
-            'message': 'Failed to fetch active orders', 
-            'error': str(e)
-        }), 500
+        current_app.logger.error(f"Error getting active orders: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @orders.route('/restaurant/<restaurant_slug>/orders/history')
 @login_required
@@ -475,14 +434,116 @@ def estimate_preparation_time(order_id):
     return round(estimated_time)
 
 def generate_receipt(order_id):
+    """Generate a URL for the order receipt."""
     order = Order.query.get(order_id)
-    # Generate receipt logic here
-    # For demo, we'll just return a dummy URL
-    return f'/receipts/{order_id}.pdf'
+    if not order:
+        current_app.logger.error(f"Unable to generate receipt: Order {order_id} not found")
+        return None
+    
+    receipt_url = url_for('orders.order_receipt', order_id=order_id, _external=True)
+    current_app.logger.info(f"Generated receipt URL for order {order_id}: {receipt_url}")
+    return receipt_url
 
-# Add a new route for viewing a single order receipt
+@orders.route('/api/orders/history')
+def get_table_order_history():
+    """Get order history for a specific table."""
+    try:
+        table_id = request.args.get('table_id')
+        if not table_id or table_id == 'undefined' or table_id == 'null':
+            return jsonify({'success': False, 'message': 'Valid Table ID is required'}), 400
+            
+        # Convert to integer if possible
+        try:
+            table_id = int(table_id)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Table ID must be a number'}), 400
+            
+        # Query orders for this table
+        orders = Order.query.filter_by(
+            table_id=table_id
+        ).order_by(Order.created_at.desc()).all()
+        
+        orders_data = []
+        for order in orders:
+            items = []
+            
+            for item in order.items:
+                menu_item = MenuItem.query.get(item.menu_item_id)
+                item_name = "Unknown"
+                if menu_item:
+                    item_name = menu_item.name
+                
+                items.append({
+                    'id': item.id,
+                    'name': item_name,
+                    'quantity': item.quantity,
+                    'price': float(item.unit_price)
+                })
+            
+            orders_data.append({
+                'id': order.id,
+                'table_id': order.table_id,
+                'status': order.status,
+                'created_at': order.created_at.isoformat(),
+                'updated_at': order.updated_at.isoformat() if order.updated_at else order.created_at.isoformat(),
+                'completed_at': order.completed_at.isoformat() if order.completed_at else None,
+                'total_amount': float(order.total_amount) if order.total_amount else 0,
+                'tax_amount': float(order.tax_amount) if order.tax_amount else 0,
+                'final_amount': float(order.final_amount) if order.final_amount else 0,
+                'items': items
+            })
+        
+        return jsonify({
+            'success': True,
+            'orders': orders_data
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        current_app.logger.error(f"Error fetching table order history: {str(e)}\n{traceback_str}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @orders.route('/order/<int:order_id>/receipt')
 def order_receipt(order_id):
+    """Generate a receipt for an order"""
+    # Get the order
+    order = Order.query.get_or_404(order_id)
+    
+    # Get the restaurant information
+    restaurant = User.query.get(order.user_id)
+    
+    # Prepare items list - ensure it's an iterable
+    if hasattr(order, 'items') and callable(getattr(order, 'items')):
+        # If items is a callable (like a query method)
+        items_list = list(order.items)
+    else:
+        # If items is a direct property
+        items_list = order.items if order.items else []
+    
+    # Calculate tax rate
+    tax_rate = 10  # Default 10%
+    if order.total_amount and order.total_amount > 0:
+        tax_percentage = (order.tax_amount / order.total_amount) * 100
+        tax_rate = round(tax_percentage, 1)
+    
+    # Get currency symbol from restaurant settings
+    currency_symbol = '$'  # Default
+    if hasattr(restaurant, 'currency_symbol') and restaurant.currency_symbol:
+        currency_symbol = restaurant.currency_symbol
+    
+    # Render the receipt template
+    return render_template('orders/receipt.html', 
+                          order=order, 
+                          restaurant=restaurant,
+                          items_list=items_list,
+                          currency_symbol=currency_symbol,
+                          tax_rate=tax_rate)
+
+@orders.route('/api/orders/<int:order_id>/cancel', methods=['POST'])
+@login_required
+def cancel_order(order_id):
+    """Cancel an order."""
     try:
         order = Order.query.get_or_404(order_id)
         
@@ -492,43 +553,95 @@ def order_receipt(order_id):
                 'success': False,
                 'message': 'Unauthorized'
             }), 403
-            
-        # Get restaurant name
-        restaurant = User.query.get(order.user_id)
         
-        # Prepare order data for the template
-        order_items = []
-        for item in order.items:
-            order_items.append({
-                'id': item.id,
-                'name': item.menu_item.name,
-                'quantity': item.quantity,
-                'unit_price': float(item.unit_price),
-                'total_price': float(item.unit_price * item.quantity),
-                'special_instructions': item.special_instructions
-            })
+        # Update order status
+        order.status = 'cancelled'
+        order.updated_at = datetime.utcnow()
         
-        order_data = {
-            'id': order.id,
-            'restaurant_name': restaurant.restaurant_name,
-            'table_number': order.table.number,
-            'status': order.status,
-            'customer_phone': order.customer_phone,
-            'payment_method': order.payment_method,
-            'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'timestamp': datetime.timestamp(order.created_at),
-            'total_amount': float(order.total_amount),
-            'tax_amount': float(order.tax_amount),
-            'final_amount': float(order.final_amount),
-            'special_instructions': order.special_instructions,
-            'items': order_items
-        }
+        # Save changes
+        db.session.commit()
         
-        return render_template('orders/receipt.html', order=order_data)
+        # Log the cancellation
+        current_app.logger.info(f"Order #{order.id} cancelled by restaurant")
+        
+        # Notify restaurant and customer about the cancellation
+        socketio.emit('order_update', {
+            'type': 'status_change',
+            'order': {
+                'id': order.id,
+                'status': order.status,
+                'table_id': order.table_id
+            },
+            'previous_status': 'active'
+        }, room=f"restaurant_{order.user_id}")
+        
+        # Send notification to table
+        socketio.emit('notification', {
+            'title': 'Order Cancelled',
+            'message': f'Your order #{order.id} has been cancelled by the restaurant.',
+            'type': 'warning'
+        }, room=f"table_{order.table_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order cancelled successfully',
+            'order_id': order.id,
+            'status': order.status
+        })
         
     except Exception as e:
-        print(f"Error generating receipt: {e}")
+        db.session.rollback()
+        import traceback
+        traceback_str = traceback.format_exc()
+        current_app.logger.error(f"Error cancelling order: {str(e)}\n{traceback_str}")
         return jsonify({
             'success': False,
-            'message': 'Error generating receipt'
+            'message': str(e)
         }), 500 
+
+@orders.route('/restaurant/orders/receipts')
+@login_required
+def all_restaurant_receipts():
+    """Display all receipts for a restaurant."""
+    try:
+        # Get all orders for this restaurant that are not cancelled
+        orders = Order.query.filter_by(user_id=current_user.id).filter(Order.status != 'cancelled').order_by(Order.created_at.desc()).all()
+        
+        # Prepare data for template
+        orders_data = []
+        
+        for order in orders:
+            # Get table
+            table = Table.query.get(order.table_id)
+            table_number = "Unknown"
+            if table:
+                table_number = table.number
+            
+            # Get total items
+            total_items = 0
+            for item in order.items:
+                total_items += item.quantity
+            
+            orders_data.append({
+                'id': order.id,
+                'table_number': table_number,
+                'status': order.status,
+                'created_at': order.created_at,
+                'payment_method': order.payment_method if hasattr(order, 'payment_method') else 'unknown',
+                'payment_status': order.payment_status if hasattr(order, 'payment_status') else 'unknown',
+                'total_amount': float(order.total_amount) if order.total_amount else 0,
+                'tax_amount': float(order.tax_amount) if order.tax_amount else 0,
+                'final_amount': float(order.final_amount) if order.final_amount else 0,
+                'total_items': total_items,
+                'receipt_url': url_for('orders.order_receipt', order_id=order.id)
+            })
+        
+        # Render template
+        return render_template('orders/all_receipts.html', orders=orders_data)
+        
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        current_app.logger.error(f"Error displaying all receipts: {str(e)}\n{traceback_str}")
+        flash('Error loading receipts', 'danger')
+        return redirect(url_for('main.index')) 

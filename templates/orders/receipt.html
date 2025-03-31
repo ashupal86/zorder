@@ -4,235 +4,241 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Receipt #{{ order.id }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
     body {
       font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f8f9fa;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f9f8f3;
+      padding: 20px;
     }
-    
-    .receipt {
-      max-width: 80mm;
-      margin: 20px auto;
+    .receipt-container {
+      max-width: 600px;
+      margin: 0 auto;
       background-color: white;
-      padding: 10px;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+      border: 2px solid var(--ghibli-green, #77b28c);
     }
-    
+    .receipt-container::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 80px;
+      height: 80px;
+      background-color: #f9f8f3;
+      border-radius: 50%;
+      opacity: 0.3;
+      z-index: 0;
+    }
     .receipt-header {
       text-align: center;
-      border-bottom: 1px dashed #ccc;
-      padding-bottom: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .receipt-title {
+      color: #333;
       margin-bottom: 10px;
+      font-size: 24px;
     }
-    
-    .restaurant-name {
-      font-size: 1.2rem;
-      font-weight: bold;
-      margin: 5px 0;
-    }
-    
-    .receipt-info {
+    .receipt-logo {
+      max-width: 120px;
       margin-bottom: 15px;
-      font-size: 0.9rem;
     }
-    
-    .receipt-info p {
-      margin: 3px 0;
+    .receipt-details {
+      margin: 25px 0;
+      padding: 20px 0;
+      border-top: 2px dotted #ddd;
+      border-bottom: 2px dotted #ddd;
+      position: relative;
+      z-index: 1;
     }
-    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .detail-label {
+      font-weight: bold;
+      color: #555;
+    }
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 15px;
-      font-size: 0.9rem;
+      margin: 20px 0;
     }
-    
     .items-table th {
+      background-color: #f5f5f5;
+      padding: 10px;
       text-align: left;
-      border-bottom: 1px solid #ccc;
-      padding: 5px 2px;
+      font-weight: bold;
     }
-    
-    .items-table tr td {
-      padding: 5px 2px;
-      border-bottom: 1px dotted #eee;
+    .items-table td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
     }
-    
-    .items-table .qty {
-      text-align: center;
-      width: 40px;
-    }
-    
-    .items-table .price {
-      text-align: right;
-      width: 50px;
-    }
-    
     .total-section {
-      border-top: 1px dashed #ccc;
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 20px;
     }
-    
     .total-row {
       display: flex;
       justify-content: space-between;
-      margin: 5px 0;
-      font-size: 0.9rem;
+      margin-bottom: 8px;
     }
-    
-    .total-row.final {
+    .grand-total {
       font-weight: bold;
-      font-size: 1.1rem;
-      margin-top: 5px;
-      border-top: 1px solid #ccc;
-      padding-top: 5px;
+      font-size: 18px;
+      margin-top: 10px;
+      border-top: 2px solid #ddd;
+      padding-top: 10px;
     }
-    
-    .footer {
+    .receipt-footer {
       text-align: center;
-      margin-top: 20px;
-      font-size: 0.8rem;
-      color: #666;
+      margin-top: 30px;
+      color: #777;
+      font-size: 14px;
     }
-    
-    .barcode {
-      text-align: center;
-      margin: 15px 0;
+    .print-button {
+      display: block;
+      margin: 30px auto 10px;
+      padding: 10px 20px;
+      background-color: var(--ghibli-blue, #4f8bc9);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
     }
-    
-    .special-instructions {
-      font-style: italic;
-      border: 1px solid #eee;
-      padding: 8px;
-      margin: 10px 0;
-      font-size: 0.85rem;
-      background-color: #f9f9f9;
+    .print-button:hover {
+      background-color: #3a7ab8;
     }
-    
     @media print {
-      body {
-        background-color: white;
-      }
-      .receipt {
+      .receipt-container {
         box-shadow: none;
         margin: 0;
-        padding: 0;
+        padding: 15px;
       }
-      .print-buttons {
+      .print-button {
         display: none;
       }
-    }
-
-    .print-buttons {
-      text-align: center;
-      margin: 20px 0;
-    }
-
-    .print-button {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    .back-button {
-      background-color: #6c757d;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      margin-left: 10px;
+      body {
+        background-color: white;
+        padding: 0;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="print-buttons">
-    <button class="print-button" onclick="window.print()">Print Receipt</button>
-    <button class="back-button" onclick="window.history.back()">Back to Orders</button>
-  </div>
-
-  <div class="receipt">
+  <div class="receipt-container">
     <div class="receipt-header">
-      <div class="restaurant-name">{{ order.restaurant_name }}</div>
-      <p>Digital Waiter System</p>
+      {% if restaurant.logo %}
+      <img src="{{ restaurant.logo }}" alt="{{ restaurant.name }} Logo" class="receipt-logo">
+      {% endif %}
+      <h1 class="receipt-title">{{ restaurant.name }}</h1>
+      <p>{{ restaurant.address }}</p>
+      <p>{{ restaurant.phone }}</p>
     </div>
-    
-    <div class="receipt-info">
-      <p><strong>Order #:</strong> {{ order.id }}</p>
-      <p><strong>Date:</strong> {{ order.created_at }}</p>
-      <p><strong>Table:</strong> {{ order.table_number }}</p>
-      <p><strong>Customer:</strong> {{ order.customer_phone }}</p>
-      <p><strong>Status:</strong> {{ order.status }}</p>
+
+    <div class="receipt-details">
+      <div class="detail-row">
+        <span class="detail-label">Receipt #:</span>
+        <span>{{ order.id }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Date:</span>
+        <span>{{ order.created_at.strftime('%B %d, %Y %I:%M %p') }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Table:</span>
+        <span>{{ order.assigned_table.number }}</span>
+      </div>
+      {% if order.customer_name %}
+      <div class="detail-row">
+        <span class="detail-label">Customer:</span>
+        <span>{{ order.customer_name }}</span>
+      </div>
+      {% endif %}
+      {% if order.customer_phone %}
+      <div class="detail-row">
+        <span class="detail-label">Phone:</span>
+        <span>{{ order.customer_phone }}</span>
+      </div>
+      {% endif %}
+      <div class="detail-row">
+        <span class="detail-label">Status:</span>
+        <span>{{ order.status.capitalize() }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Payment:</span>
+        <span>{{ 'Paid' if order.payment_status == 'paid' else 'Pending' }}</span>
+      </div>
     </div>
-    
-    {% if order.special_instructions %}
-    <div class="special-instructions">
-      <strong>Special Instructions:</strong><br>
-      {{ order.special_instructions }}
-    </div>
-    {% endif %}
-    
+
+    <h3>Order Items</h3>
     <table class="items-table">
       <thead>
         <tr>
+          <th>Qty</th>
           <th>Item</th>
-          <th class="qty">Qty</th>
-          <th class="price">Price</th>
+          <th>Price</th>
+          <th>Subtotal</th>
         </tr>
       </thead>
       <tbody>
-        {% for item in order.items %}
+        {% for item in items_list %}
         <tr>
-          <td>{{ item.name }}</td>
-          <td class="qty">{{ item.quantity }}</td>
-          <td class="price">${{ "%.2f"|format(item.total_price) }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ item.menu_item.name }}</td>
+          <td>{{ currency_symbol }}{{ item.price }}</td>
+          <td>{{ currency_symbol }}{{ item.subtotal }}</td>
         </tr>
-        {% if item.special_instructions %}
-        <tr>
-          <td colspan="3" style="font-size: 0.8rem; font-style: italic; padding-top: 0;">
-            Note: {{ item.special_instructions }}
-          </td>
-        </tr>
-        {% endif %}
         {% endfor %}
       </tbody>
     </table>
-    
+
     <div class="total-section">
       <div class="total-row">
         <span>Subtotal:</span>
-        <span>${{ "%.2f"|format(order.total_amount) }}</span>
+        <span>{{ currency_symbol }}{{ order.total_amount }}</span>
       </div>
       <div class="total-row">
-        <span>Tax (10%):</span>
-        <span>${{ "%.2f"|format(order.tax_amount) }}</span>
+        <span>Tax ({{ tax_rate }}%):</span>
+        <span>{{ currency_symbol }}{{ order.tax_amount }}</span>
       </div>
-      <div class="total-row final">
+      <div class="total-row grand-total">
         <span>Total:</span>
-        <span>${{ "%.2f"|format(order.final_amount) }}</span>
-      </div>
-      <div class="total-row">
-        <span>Payment Method:</span>
-        <span>{{ "Paid" if order.payment_method == "now" else "Pay at Table" }}</span>
+        <span>{{ currency_symbol }}{{ order.final_amount }}</span>
       </div>
     </div>
-    
-    <div class="barcode">
-      *{{ order.id }}*
+
+    {% if order.special_instructions %}
+    <div style="margin-top: 20px;">
+      <strong>Special Instructions:</strong>
+      <p>{{ order.special_instructions }}</p>
     </div>
-    
-    <div class="footer">
-      <p>Thank you for your order!</p>
-      <p>{{ "%.2f"|format(order.timestamp) }}</p>
+    {% endif %}
+
+    <div class="receipt-footer">
+      <p>Thank you for dining with us!</p>
+      <p>Please visit us again soon.</p>
     </div>
   </div>
+
+  <button class="print-button" onclick="window.print();">
+    <i class="fas fa-print"></i> Print Receipt
+  </button>
+
+  <script>
+    // Automatically print on page load
+    // window.onload = function() {
+    //     window.print();
+    // }
+  </script>
 </body>
 </html> 

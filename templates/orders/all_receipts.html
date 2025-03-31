@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}All Receipts{% endblock %}
+
+{% block extra_css %}
+<style>
+.receipt-card {
+    transition: all 0.3s ease;
+}
+.receipt-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.receipt-card .card {
+    border-radius: 8px;
+    overflow: hidden;
+    border: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+.receipt-card .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 15px;
+}
+.receipt-card .card-body {
+    padding: 18px;
+}
+.receipt-card p {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+.receipt-card .total-amount {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #dc3545;
+    margin-bottom: 15px;
+}
+.receipt-card .btn {
+    border-radius: 5px;
+    font-weight: 500;
+    transition: all 0.2s;
+    padding: 6px 14px;
+}
+.receipt-card .btn:hover {
+    transform: translateY(-2px);
+}
+.status-badge {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 15px;
+}
+.receipt-filter-container {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 25px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0"><i class="fas fa-receipt me-2"></i>All Receipts</h1>
+        <div>
+            <a href="{{ url_for('orders.get_active_orders') }}" class="btn btn-outline-primary">
+                <i class="fas fa-clipboard-list me-1"></i>Active Orders
+            </a>
+        </div>
+    </div>
+    
+    <div class="receipt-filter-container">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label for="statusFilter" class="form-label">Filter by Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="ready">Ready</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="tableFilter" class="form-label">Filter by Table</label>
+                <input type="text" class="form-control" id="tableFilter" placeholder="Table number...">
+            </div>
+            <div class="col-md-4">
+                <label for="dateFilter" class="form-label">Filter by Date</label>
+                <input type="date" class="form-control" id="dateFilter">
+            </div>
+        </div>
+    </div>
+    
+    {% if orders %}
+    <div class="row" id="receipts-container">
+        {% for order in orders %}
+        <div class="col-md-6 col-lg-4 col-xl-3 mb-4 receipt-card" 
+             data-order-id="{{ order.id }}"
+             data-table="{{ order.table_number }}"
+             data-status="{{ order.status }}"
+             data-date="{{ order.created_at }}">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Order #{{ order.id }}</h5>
+                    <span class="badge status-badge bg-{{ status_color(order.status) }}">{{ order.status|capitalize }}</span>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1"><i class="fas fa-table-cells me-2 text-secondary"></i><strong>Table:</strong> {{ order.table_number }}</p>
+                    <p class="mb-1"><i class="far fa-clock me-2 text-secondary"></i><strong>Date:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p class="mb-1"><i class="fas fa-utensils me-2 text-secondary"></i><strong>Items:</strong> {{ order.total_items }}</p>
+                    <p class="total-amount">
+                        <i class="fas fa-money-bill-wave me-2"></i><strong>Total:</strong> 
+                        {{ current_user.currency|default('$') }}{{ "%.2f"|format(order.final_amount) }}
+                    </p>
+                    
+                    <div class="d-flex mt-3">
+                        <a href="{{ order.receipt_url }}" target="_blank" class="btn btn-primary me-2">
+                            <i class="fas fa-eye me-1"></i>View
+                        </a>
+                        <a href="{{ order.receipt_url }}?print=true" target="_blank" class="btn btn-outline-secondary">
+                            <i class="fas fa-print me-1"></i>Print
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>No receipts found.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const statusFilter = document.getElementById('statusFilter');
+    const tableFilter = document.getElementById('tableFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const receipts = document.querySelectorAll('.receipt-card');
+    
+    function applyFilters() {
+        const statusValue = statusFilter.value.toLowerCase();
+        const tableValue = tableFilter.value.toLowerCase();
+        const dateValue = dateFilter.value;
+        
+        receipts.forEach(receipt => {
+            const statusMatch = !statusValue || receipt.dataset.status.toLowerCase() === statusValue;
+            const tableMatch = !tableValue || receipt.dataset.table.toLowerCase().includes(tableValue);
+            
+            let dateMatch = true;
+            if (dateValue) {
+                const receiptDate = new Date(receipt.dataset.date);
+                const filterDate = new Date(dateValue);
+                dateMatch = receiptDate.toDateString() === filterDate.toDateString();
+            }
+            
+            if (statusMatch && tableMatch && dateMatch) {
+                receipt.style.display = '';
+            } else {
+                receipt.style.display = 'none';
+            }
+        });
+    }
+    
+    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+    if (tableFilter) tableFilter.addEventListener('input', applyFilters);
+    if (dateFilter) dateFilter.addEventListener('change', applyFilters);
+});
+</script>
+{% endblock %}
+
+{% macro status_color(status) %}
+    {% if status == 'pending' %}
+        warning
+    {% elif status == 'preparing' %}
+        info
+    {% elif status == 'ready' %}
+        success
+    {% elif status == 'completed' %}
+        secondary
+    {% elif status == 'paid' %}
+        primary
+    {% elif status == 'cancelled' %}
+        danger
+    {% else %}
+        dark
+    {% endif %}
+{% endmacro %} 

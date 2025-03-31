@@ -1,172 +1,637 @@
 {% extends "base.html" %}
 
-{% block title %}{{ restaurant.name }} - Menu{% endblock %}
+{% block title %}Menu - {{ restaurant.name }}{% endblock %}
 
 {% block extra_css %}
 <style>
 .menu-item-card {
-    transition: transform 0.2s;
-    border: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    background: linear-gradient(to bottom, #ffffff, var(--ghibli-beige));
+    height: 100%;
 }
 .menu-item-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+}
+.card-img-container {
+    position: relative;
+    height: 140px;
+    overflow: hidden;
+}
+.menu-item-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+.menu-item-card:hover .menu-item-image {
+    transform: scale(1.05);
+}
+.placeholder-image {
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+.menu-item-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border-radius: 30px;
+    padding: 6px 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    z-index: 1;
+    background-color: #007bff;
+    color: white;
+}
+.card-body {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+.menu-item-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+    color: #212529;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.menu-item-description {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 15px;
+    flex-grow: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    max-height: 2.6rem;
+}
+.menu-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+}
+.add-to-cart-btn {
+    width: 100%;
+    padding: 8px 0;
+    border-radius: 5px;
+    background-color: #6c5ce7;
+    border-color: #6c5ce7;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.add-to-cart-btn:hover {
+    background-color: #5f48e1;
+    border-color: #5f48e1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(108,92,231,0.3);
+}
+.add-to-cart-btn i {
+    margin-right: 5px;
+}
+.cart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    padding: 12px 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.cart-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.cart-item-title {
+    color: var(--ghibli-text);
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+.cart-item-price {
+    color: var(--ghibli-orange);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.cart-item-controls {
+    display: flex;
+    align-items: center;
+}
+.cart-item-quantity {
+    margin: 0 0.4rem;
+    font-weight: 600;
+    min-width: 1.2rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+.cart-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cart-empty {
+    text-align: center;
+    padding: 30px 0;
+    color: #6c757d;
+}
+.cart-empty i {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+.category-sidebar {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding-right: 15px;
+    scrollbar-width: thin;
+}
+.category-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+.category-sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 2px;
 }
 .category-nav .nav-link {
-    color: #333;
-    border-radius: 20px;
-    margin-bottom: 0.5rem;
+    color: #495057;
+    border-radius: 6px;
+    margin-bottom: 0.4rem;
+    padding: 8px 12px;
     transition: all 0.3s;
+    font-weight: 500;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
 }
 .category-nav .nav-link:hover,
 .category-nav .nav-link.active {
     background-color: #007bff;
     color: white;
+    box-shadow: 0 2px 6px rgba(0,123,255,0.3);
 }
+.category-nav .nav-link i {
+    margin-right: 8px;
+    font-size: 1rem;
+}
+.category-header {
+    margin: 1.5rem 0 1rem;
+    position: relative;
+    padding-bottom: 0.4rem;
+    font-size: 1.5rem;
+}
+.category-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 40px;
+    height: 3px;
+    background-color: #007bff;
+    border-radius: 2px;
+}
+
+/* Row spacing refinements */
+.row-cols-1.row-cols-sm-2.g-4 {
+    --bs-gutter-x: 1rem;
+    --bs-gutter-y: 1rem;
+}
+
+/* Sticky cart */
+.sticky-cart {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+/* Fade in animation */
 .fade-in {
-    animation: fadeIn 0.5s;
+    animation: fadeIn 0.4s;
 }
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Cart button for mobile */
 .cart-button {
-    width: 60px;
-    height: 60px;
-    border-radius: 30px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    width: 54px;
+    height: 54px;
+    border-radius: 27px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16);
     transition: transform 0.2s;
 }
 .cart-button:hover {
-    transform: scale(1.1);
+    transform: scale(1.05);
 }
-.menu-item-image {
-    height: 200px;
-    object-fit: cover;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+
+/* Notification toast */
+.notification-toast {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background-color: #28a745;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 9999;
+    display: none;
+    font-size: 0.9rem;
 }
-.placeholder-image {
-    height: 200px;
+
+/* Order success */
+.order-success {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    padding: 20px;
+}
+
+.order-success.show {
+    opacity: 1;
+}
+
+.order-success-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: 2px solid var(--ghibli-green, #77b28c);
+    animation: float 2s infinite alternate ease-in-out;
+    position: relative;
+}
+
+.order-success-content::before,
+.order-success-content::after {
+    content: '';
+    position: absolute;
+    background-color: var(--ghibli-green, #77b28c);
+    border-radius: 50%;
+    opacity: 0.2;
+    z-index: -1;
+}
+
+.order-success-content::before {
+    width: 60px;
+    height: 60px;
+    top: -20px;
+    left: -30px;
+}
+
+.order-success-content::after {
+    width: 40px;
+    height: 40px;
+    bottom: -10px;
+    right: -20px;
+}
+
+.order-success-icon {
+    margin-bottom: 20px;
+}
+
+.order-success-icon i {
+    font-size: 60px;
+    color: var(--ghibli-green, #77b28c);
+}
+
+.order-success h3 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.order-success p {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+/* Animation keyframes for the floating effect */
+@keyframes float {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Payment options */
+.payment-option {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+.payment-option.selected {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+    box-shadow: 0 2px 6px rgba(0,123,255,0.1);
+}
+.payment-option-label {
+    display: block;
+    width: 100%;
+    cursor: pointer;
+    padding: 4px;
+    margin-bottom: 0;
+    font-weight: 500;
+}
+.payment-method-icon {
+    font-size: 1.3rem;
+    margin-right: 8px;
+    color: #6c757d;
+}
+.payment-option.selected .payment-method-icon {
+    color: #007bff;
+}
+.payment-option-title {
+    font-size: 1rem;
+    vertical-align: middle;
+}
+
+.menu-category {
+    position: relative;
+    margin-bottom: 35px;
+    padding-top: 15px;
+}
+
+.menu-category-title {
+    display: inline-block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ghibli-brown);
+    margin-bottom: 25px;
+    position: relative;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--ghibli-light-green);
+}
+
+.menu-category-title:after {
+    content: '';
+    position: absolute;
+    right: -25px;
+    top: 0;
+    width: 25px;
+    height: 25px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="%2388b27c" d="M50,0 C55,25 75,25 100,30 C75,35 55,35 50,60 C45,35 25,35 0,30 C25,25 45,25 50,0 Z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.7;
+}
+
+.cart-icon {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background-color: var(--ghibli-green);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+    z-index: 1000;
 }
-.badge-price {
-    font-size: 1rem;
-    padding: 0.5rem 1rem;
+
+.cart-icon:hover {
+    transform: scale(1.1);
+    background-color: var(--ghibli-blue);
 }
-.add-to-cart-btn {
+
+.cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: var(--ghibli-deep-pink);
+    color: white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.cart-container {
+    position: relative;
+    background: linear-gradient(to bottom, #ffffff, var(--ghibli-cream));
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+    margin-bottom: 30px;
+}
+
+.cart-title {
+    color: var(--ghibli-brown);
+    font-weight: 700;
+    margin-bottom: 15px;
+    font-size: 1.4rem;
+    border-bottom: 2px solid var(--ghibli-light-blue);
+    padding-bottom: 10px;
+}
+
+/* Checkout Modal */
+.modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    background: linear-gradient(to bottom, #ffffff, var(--ghibli-beige));
+}
+
+.modal-header {
+    border-bottom: 2px solid var(--ghibli-light-blue);
+    padding: 15px 20px;
+}
+
+.modal-title {
+    color: var(--ghibli-blue);
+    font-weight: 700;
+}
+
+.modal-footer {
+    border-top: 2px solid var(--ghibli-light-blue);
+    padding: 15px 20px;
+}
+
+/* Order Success Animation */
+.success-checkmark {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.success-checkmark .check {
     width: 100%;
-    border-radius: 20px;
-    transition: all 0.3s;
+    height: 100%;
+    position: relative;
+    transform: rotate(45deg);
+    animation: success-appear 0.8s ease-in-out;
 }
-.add-to-cart-btn:hover {
-    transform: scale(1.05);
+
+.success-checkmark .check:before,
+.success-checkmark .check:after {
+    content: '';
+    background-color: var(--ghibli-green);
+    position: absolute;
+    border-radius: 5px;
+}
+
+.success-checkmark .check:before {
+    width: 3px;
+    height: 30px;
+    left: 30px;
+    top: 45px;
+    animation: success-down 0.8s ease-in-out;
+}
+
+.success-checkmark .check:after {
+    width: 50px;
+    height: 3px;
+    left: 15px;
+    top: 60px;
+    animation: success-across 0.8s ease-in-out;
+}
+
+@keyframes success-appear {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes success-down {
+    0% { height: 0; opacity: 0; }
+    100% { height: 30px; opacity: 1; }
+}
+
+@keyframes success-across {
+    0% { width: 0; opacity: 0; }
+    100% { width: 50px; opacity: 1; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4" 
-     data-table-id="{{ table.id }}" 
-     data-table-number="{{ table.number }}">
-    <!-- Restaurant Info -->
-    <div class="text-center mb-5">
-        <h1 class="display-4 mb-2">{{ restaurant.name }}</h1>
-        <p class="lead text-muted">Table {{ table.number }}</p>
-        <div class="d-flex justify-content-center gap-2">
-            <button id="viewHistoryBtn" class="btn btn-sm btn-outline-secondary" onclick="viewOrderHistory()" style="display: none;">
-                <i class="fas fa-history me-2"></i>View Order History
-            </button>
-            <button id="enableNotificationsBtn" class="btn btn-sm btn-primary">
-                <i class="fas fa-bell me-2"></i>Enable Order Notifications
-            </button>
-        </div>
+<div class="container-fluid">
+    <div class="row py-3">
+        <!-- Remove breadcrumb that's causing issues -->
     </div>
 
-    <!-- Add this before the cart section, right after the table number display -->
-    <div class="mt-2 mb-3">
-        <a href="/notifications/debug" target="_blank" class="btn btn-warning btn-sm">
-            <i class="fas fa-tools me-1"></i> Debug Notifications
-        </a>
-    </div>
-
-    <!-- Cart Button -->
-    <div class="position-fixed bottom-0 end-0 m-4 z-3">
-        <button class="btn btn-primary cart-button" 
-                data-bs-toggle="modal" data-bs-target="#cartModal">
-            <i class="fas fa-shopping-cart"></i>
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
-                  id="cartCount">0</span>
-        </button>
-    </div>
-
-    <!-- Menu Categories -->
-    <div class="row g-4">
-        <!-- Category Navigation -->
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm sticky-top" style="top: 2rem;">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">Menu Categories</h5>
-                    <div class="nav flex-column category-nav">
-                        {% for category in categories %}
-                        <a class="nav-link d-flex align-items-center" href="#category-{{ category.id }}">
-                            <i class="fas fa-utensils me-2"></i>
-                            <span>{{ category.name }}</span>
-                            <span class="ms-auto badge bg-secondary">{{ category.menu_items|length }}</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
+    <!-- Restaurant Header -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            {% if restaurant.logo %}
+            <img src="{{ restaurant.logo }}" alt="{{ restaurant.name }} Logo" class="img-fluid restaurant-logo mb-3" style="max-height: 120px;">
+            {% endif %}
+            <h1 class="restaurant-name mb-2" style="font-weight: 700;">{{ restaurant.name }}</h1>
+            <p class="restaurant-description text-muted mb-3">{{ restaurant.description }}</p>
+            <div class="d-flex justify-content-center align-items-center gap-3">
+                <span class="badge bg-primary px-3 py-2 rounded-pill">
+                    <i class="fas fa-utensils me-1"></i> Table {{ table.number }}
+                </span>
+                <button class="btn btn-outline-secondary rounded-pill px-3 py-2" data-bs-toggle="modal" data-bs-target="#viewOrderHistoryModal">
+                    <i class="fas fa-history me-1"></i> Order History
+                </button>
             </div>
         </div>
+    </div>
 
-        <!-- Menu Items -->
-        <div class="col-lg-9">
+    <div class="row" data-table-id="{{ table.id }}" data-table-number="{{ table.number }}">
+        <!-- Category sidebar -->
+        <div class="col-lg-3 col-md-4 d-none d-md-block">
+            <div class="category-sidebar">
+                <h5 class="mb-3">Menu Categories</h5>
+                <nav class="category-nav">
+                    {% for category in categories %}
+                    <a href="#category-{{ category.id }}" class="nav-link {% if loop.first %}active{% endif %}">
+                        <i class="fas fa-tag"></i> {{ category.name }}
+                    </a>
+                    {% endfor %}
+                </nav>
+            </div>
+        </div>
+        
+        <!-- Menu items -->
+        <div class="col-md-9 col-lg-10 col-xl-10 menu-content">
+            <div class="mb-4">
+                <h1 class="h3">
+                    <span class="float-animation">🍽️</span> {{ restaurant.restaurant_name }}'s Menu
+                </h1>
+                <p class="text-muted">Discover our delicious offerings and place your order with ease.</p>
+            </div>
+            
             {% for category in categories %}
-            <div id="category-{{ category.id }}" class="mb-5">
-                <h2 class="h3 mb-4 pb-2 border-bottom">{{ category.name }}</h2>
-                <div class="row g-4">
+            <div class="menu-category" id="category-{{ category.id }}">
+                <h2 class="menu-category-title">{{ category.name }}</h2>
+                
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
                     {% for item in category.menu_items %}
-                    <div class="col-md-6">
-                        <div class="card h-100 menu-item-card fade-in">
-                            {% if item.image_url %}
-                            <img src="{{ item.image_url }}" class="menu-item-image" alt="{{ item.name }}">
-                            {% else %}
-                            <div class="placeholder-image">
-                                <i class="fas fa-utensils fa-3x text-muted"></i>
+                    <div class="col fade-in">
+                        <div class="menu-item-card">
+                            <div class="card-img-container">
+                                {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.name }}" class="menu-item-image">
+                                {% else %}
+                                <div class="placeholder-image bg-light">
+                                    <i class="fas fa-utensils fa-2x text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <span class="menu-item-badge">
+                                    {% if restaurant.currency %}{{ restaurant.currency }}{% else %}${% endif %}{{ item.price | round(2) }}
+                                </span>
                             </div>
-                            {% endif %}
-                            
                             <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h5 class="card-title mb-0">{{ item.name }}</h5>
-                                    <span class="badge bg-primary badge-price">
-                                        {{ item.currency }} {{ "%.2f"|format(item.price) }}
-                                    </span>
+                                <h5 class="menu-item-title">{{ item.name }}</h5>
+                                <p class="menu-item-description">{{ item.description }}</p>
+                                <div class="menu-item-footer">
+                                    <button class="btn btn-primary add-to-cart-btn" 
+                                            onclick="addToCart('{{ item.id }}', '{{ item.name }}', {{ item.price }})"
+                                            data-item-id="{{ item.id }}" 
+                                            data-item-name="{{ item.name }}" 
+                                            data-item-price="{{ item.price }}"
+                                            data-original-id="{{ item.original_id }}">
+                                        <i class="fas fa-plus me-1"></i> Add
+                                    </button>
                                 </div>
-                                <p class="card-text text-muted mb-4">{{ item.description }}</p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock me-1"></i>{{ item.preparation_time }} mins
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="card-footer bg-transparent border-0 pb-3">
-                                <button class="btn btn-outline-primary add-to-cart-btn" 
-                                        data-id="{{ item.original_id }}"
-                                        data-name="{{ item.name }}"
-                                        data-price="{{ item.price }}"
-                                        data-currency="{{ item.currency }}"
-                                        data-preparation-time="{{ item.preparation_time }}"
-                                        onclick="addToCartById(this)">
-                                    <i class="fas fa-plus me-2"></i>Add to Order
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -175,767 +640,548 @@
             </div>
             {% endfor %}
         </div>
+        
+        <!-- Mobile Cart Icon (visible on smaller screens) -->
+        <div class="d-block d-md-none">
+            <div class="cart-icon" id="mobileCartButton">
+                <i class="fas fa-shopping-basket fa-lg"></i>
+                <span class="cart-badge" id="cartBadge">0</span>
+            </div>
+        </div>
+        
+        <!-- Desktop Cart (visible on larger screens) -->
+        <div class="col-md-3 col-lg-2 col-xl-2 d-none d-md-block sticky-top" style="top: 20px;">
+            <div class="cart-container">
+                <h3 class="cart-title">
+                    <i class="fas fa-shopping-basket me-2"></i>Your Order
+                </h3>
+                <div id="cartItems" class="mb-3">
+                    <div class="cart-empty">
+                        <i class="fas fa-shopping-basket"></i>
+                        <p>Your cart is empty</p>
+                        <p class="text-muted small">Add items from the menu to get started</p>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fw-bold">Total:</span>
+                    <span class="fw-bold fs-5" id="cartTotal">$0.00</span>
+                </div>
+                <button id="orderButton" class="btn btn-primary w-100" disabled>
+                    <i class="fas fa-check-circle me-2"></i>Place Order
+                </button>
+            </div>
+        </div>
     </div>
-</div>
-
-<!-- Cart Modal -->
-<div class="modal fade" id="cartModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-shopping-cart me-2"></i>Your Order
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="cartItems">
-                    <!-- Cart items will be populated via JavaScript -->
+    
+    <!-- Mobile Cart Modal -->
+    <div class="modal fade" id="cartModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-shopping-basket me-2"></i>Your Order
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                
-                <div class="mt-4" id="cartEmpty">
-                    <div class="text-center py-4">
-                        <i class="fas fa-shopping-basket fa-3x text-muted mb-3"></i>
-                        <p class="mb-0">Your cart is empty</p>
-                        <p class="text-muted small">Add some delicious items to get started!</p>
+                <div class="modal-body">
+                    <div id="modalCartItems">
+                        <div class="cart-empty">
+                            <i class="fas fa-shopping-basket"></i>
+                            <p>Your cart is empty</p>
+                            <p class="text-muted small">Add items from the menu to get started</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="mt-4" id="cartTotal" style="display: none;">
-                    <hr>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span>Subtotal:</span>
-                        <span id="subtotal" class="fw-bold">$0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span>Tax (10%):</span>
-                        <span id="tax">$0.00</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="h5 mb-0">Total:</span>
-                        <span class="h5 mb-0" id="total">$0.00</span>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <span class="fw-bold">Total:</span>
+                        <span class="fw-bold fs-5" id="modalCartTotal">$0.00</span>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-danger" onclick="clearCart()">
-                    <i class="fas fa-trash me-2"></i>Clear Cart
-                </button>
-                <button type="button" class="btn btn-primary" onclick="proceedToCheckout()" id="checkoutBtn" disabled>
-                    <i class="fas fa-arrow-right me-2"></i>Proceed to Checkout
-                </button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Close
+                    </button>
+                    <button id="modalOrderButton" class="btn btn-primary" disabled>
+                        <i class="fas fa-check-circle me-2"></i>Place Order
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Checkout Modal -->
-<div class="modal fade" id="checkoutModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content ghibli-modal">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-credit-card me-2"></i>Checkout
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="checkoutModalLabel">Complete Your Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="checkoutForm" class="needs-validation" novalidate>
-                    <!-- Hidden table_id field -->
-                    <input type="hidden" name="table_id" value="{{ table.id }}">
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-3">Order Summary</h6>
+                    <div id="modalCartItems" class="mb-3">
+                        <!-- Cart items will be inserted here -->
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Subtotal:</span>
+                        <span id="modalSubtotal"></span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Tax (10%):</span>
+                        <span id="modalTax"></span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>Total:</span>
+                        <span id="modalTotal"></span>
+                    </div>
+                </div>
+
+                <form id="orderForm" class="ghibli-form">
+                    <input type="hidden" id="tableId" name="tableId">
+                    <input type="hidden" id="tableNumber" name="tableNumber">
                     
-                    <div class="mb-4">
-                        <label for="phone" class="form-label">Phone Number</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
-                            <input type="tel" class="form-control" id="phone" required
-                                   placeholder="Enter your phone number">
-                        </div>
-                        <div class="form-text">
-                            We'll send your order updates to this number.
-                        </div>
+                    <div class="mb-3">
+                        <label for="customerName" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="customerName" name="customerName" placeholder="Enter your name">
                     </div>
                     
-                    <div class="mb-4">
-                        <label class="form-label">Payment Method</label>
-                        <div class="btn-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="paymentMethod" 
-                                   id="payNow" value="now" checked>
-                            <label class="btn btn-outline-primary" for="payNow">
-                                <i class="fas fa-credit-card me-2"></i>Pay Now
-                            </label>
-                            
-                            <input type="radio" class="btn-check" name="paymentMethod" 
-                                   id="payLater" value="later">
-                            <label class="btn btn-outline-primary" for="payLater">
-                                <i class="fas fa-clock me-2"></i>Pay at Table
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div id="paymentDetails">
-                        <div class="mb-3">
-                            <label for="cardNumber" class="form-label">Card Number</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-credit-card"></i></span>
-                                <input type="text" class="form-control" id="cardNumber" 
-                                       placeholder="1234 5678 9012 3456" required>
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col">
-                                <label for="expiry" class="form-label">Expiry Date</label>
-                                <input type="text" class="form-control" id="expiry" 
-                                       placeholder="MM/YY" required>
-                            </div>
-                            <div class="col">
-                                <label for="cvv" class="form-label">CVV</label>
-                                <input type="text" class="form-control" id="cvv" 
-                                       placeholder="123" required>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label for="customerPhone" class="form-label">Your Phone Number</label>
+                        <input type="tel" class="form-control" id="customerPhone" name="customerPhone" placeholder="For order notifications">
                     </div>
                     
                     <div class="mb-3">
                         <label for="specialInstructions" class="form-label">Special Instructions</label>
-                        <textarea class="form-control" id="specialInstructions" rows="2"
-                                 placeholder="Any special requests or allergies?"></textarea>
+                        <textarea class="form-control" id="specialInstructions" name="specialInstructions" rows="2" placeholder="Any special requests for your order?"></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Payment Method</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="paymentMethod" id="payLater" value="later" checked>
+                                <label class="form-check-label" for="payLater">Pay at Restaurant</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="paymentMethod" id="payNow" value="now">
+                                <label class="form-check-label" for="payNow">Pay Now</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="paymentDetails" class="mb-4" style="display: none;">
+                        <div class="mb-3">
+                            <h6 class="fw-semibold">Payment Options:</h6>
+                            <div class="row align-items-center">
+                                <div class="col-md-6 text-center mb-3 mb-md-0">
+                                    <img src="/static/img/qr-code.png" alt="Payment QR Code" class="img-fluid payment-qr" style="max-width: 150px;">
+                                    <p class="small mt-2">Scan to pay online</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-2"><i class="fas fa-phone-alt me-2"></i> Call to pay: <strong>123-456-7890</strong></p>
+                                    <p class="mb-0"><i class="fas fa-info-circle me-2"></i> Reference your table number when paying</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="placeOrder()">
-                    <i class="fas fa-check me-2"></i>Place Order
-                </button>
+                <button type="button" class="btn btn-primary" id="placeOrderBtn">Place Order</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Notification Permission Modal -->
-<div class="modal fade" id="notificationModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+<!-- Order Success Modal -->
+<div class="modal fade" id="orderSuccessModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header border-0">
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center px-4 pb-5">
-                <div class="mb-4">
-                    <i class="fas fa-bell fa-4x text-primary mb-3"></i>
-                    <h4 class="mb-3">Enable Notifications</h4>
-                    <p class="text-muted mb-4">
-                        We need your permission to send notifications about your order status. 
-                        You'll be notified when your order is being prepared, ready, or completed.
-                    </p>
-                </div>
-                <div class="d-grid gap-2">
-                    <button id="notificationModalEnableBtn" class="btn btn-primary btn-lg">
-                        <i class="fas fa-bell me-2"></i>Enable Notifications
-                    </button>
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        Maybe Later
+            <div class="modal-body">
+                <div class="order-success">
+                    <i class="fas fa-check-circle"></i>
+                    <h4>Order Placed Successfully!</h4>
+                    <p>Your order has been sent to the kitchen.</p>
+                    <p>We'll notify you when it's ready.</p>
+                    <button type="button" class="btn btn-primary mt-3" data-bs-dismiss="modal">
+                        Continue Browsing
                     </button>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- Notification Toast -->
+<div class="notification-toast" id="notificationToast">
+    Order status updated!
 </div>
 
 <!-- Order History Modal -->
-<div class="modal fade" id="historyModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal fade" id="viewOrderHistoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-history me-2"></i>Order History
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i>Order History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="historyContent">
-                    <!-- Order history will be populated via JavaScript -->
+                <div id="orderHistoryResults">
+                    <div class="text-center">
+                        <p>Click "View Order History" to load your previous orders.</p>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-danger" onclick="clearOrderHistory()">
-                    <i class="fas fa-trash me-2"></i>Clear History
+                <button id="viewOrderHistoryBtn" class="btn btn-primary">
+                    <i class="fas fa-refresh me-1"></i>View Order History
                 </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
 // Initialize cart
-let cart = [];
+const cart = {
+    tableId: null,
+    items: [],
+    currencySymbol: '$'
+};
 
-// Add item to cart using data attributes
-function addToCartById(button) {
-    const itemId = button.getAttribute('data-id');
-    const itemName = button.getAttribute('data-name');
-    const itemPrice = parseFloat(button.getAttribute('data-price'));
-    const itemCurrency = button.getAttribute('data-currency');
-    const itemPrepTime = button.getAttribute('data-preparation-time');
-    
-    console.log("Adding item to cart:", {id: itemId, name: itemName, price: itemPrice});
-    
-    const existingItem = cart.find(i => i.id === itemId);
-    
-    if (existingItem) {
-        existingItem.quantity += 1;
-        console.log("Updated existing item quantity:", existingItem);
-    } else {
-        const newItem = {
-            id: itemId,
-            name: itemName,
-            price: itemPrice,
-            currency: itemCurrency,
-            preparation_time: itemPrepTime,
-            quantity: 1
-        };
-        cart.push(newItem);
-        console.log("Added new item to cart:", newItem);
-    }
-    
-    console.log("Current cart:", cart);
-    updateCart();
-    showAlert('Item added to cart', 'success');
-}
+// Initialize DOM elements
+const cartBadge = document.getElementById('cartBadge');
+const cartItemsContainer = document.getElementById('cartItems');
+const modalCartItemsContainer = document.getElementById('modalCartItems');
+const cartTotalElement = document.getElementById('cartTotal');
+const modalCartTotalElement = document.getElementById('modalCartTotal');
+const orderButton = document.getElementById('orderButton');
+const modalOrderButton = document.getElementById('modalOrderButton');
+const checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal'));
+const cartModal = new bootstrap.Modal(document.getElementById('cartModal'));
+const orderSuccessModal = new bootstrap.Modal(document.getElementById('orderSuccessModal'));
+const placeOrderBtn = document.getElementById('placeOrderBtn');
+const paymentDetails = document.getElementById('paymentDetails');
+const paymentQrContainer = document.getElementById('paymentQrContainer');
+const paymentPhoneContainer = document.getElementById('paymentPhoneContainer');
+const payLaterRadio = document.getElementById('payLater');
+const payNowRadio = document.getElementById('payNow');
+const notificationSound = new Audio('/static/sounds/notification.mp3');
 
-// Update cart display
-function updateCart() {
-    console.log("Updating cart display. Current cart:", cart);
-    const cartItems = document.getElementById('cartItems');
-    const cartEmpty = document.getElementById('cartEmpty');
-    const cartTotal = document.getElementById('cartTotal');
-    const cartCount = document.getElementById('cartCount');
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    
-    // Update cart count
-    const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-    cartCount.textContent = totalItems;
-    
-    if (cart.length === 0) {
-        cartItems.innerHTML = '';
-        cartEmpty.style.display = 'block';
-        cartTotal.style.display = 'none';
-        checkoutBtn.disabled = true;
-        return;
-    }
-    
-    cartEmpty.style.display = 'none';
-    cartTotal.style.display = 'block';
-    checkoutBtn.disabled = false;
-    
-    // Generate cart items HTML
-    cartItems.innerHTML = '';
-    cart.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'card mb-3 border-0 shadow-sm';
-        itemElement.innerHTML = `
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1">${item.name}</h6>
-                        <p class="mb-0 text-muted small">
-                            ${item.currency} ${item.price.toFixed(2)} × ${item.quantity}
-                        </p>
-                    </div>
-                    <div class="ms-3">
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary" 
-                                    onclick="updateQuantity('${item.id}', ${item.quantity - 1})">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <button class="btn btn-outline-primary" disabled>
-                                ${item.quantity}
-                            </button>
-                            <button class="btn btn-outline-primary" 
-                                    onclick="updateQuantity('${item.id}', ${item.quantity + 1})">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        cartItems.appendChild(itemElement);
-    });
-    
-    // Update totals
-    if (cart.length > 0) {
-        const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-        const tax = subtotal * 0.1;
-        const total = subtotal + tax;
-        const currency = cart[0].currency;
-        
-        document.getElementById('subtotal').textContent = `${currency} ${subtotal.toFixed(2)}`;
-        document.getElementById('tax').textContent = `${currency} ${tax.toFixed(2)}`;
-        document.getElementById('total').textContent = `${currency} ${total.toFixed(2)}`;
-    }
-}
-
-// Update item quantity
-function updateQuantity(itemId, quantity) {
-    console.log("Updating quantity for item ID:", itemId, "to", quantity);
-    
-    if (quantity <= 0) {
-        console.log("Removing item from cart");
-        cart = cart.filter(item => item.id !== itemId);
-    } else {
-        const item = cart.find(item => item.id === itemId);
-        if (item) {
-            item.quantity = quantity;
-            console.log("Updated item quantity:", item);
+// Payment method toggle
+if (payLaterRadio && payNowRadio) {
+    const updatePaymentMethod = () => {
+        if (payLaterRadio.checked) {
+            document.getElementById('payLaterOption').classList.add('selected');
+            document.getElementById('payNowOption').classList.remove('selected');
+            if (paymentDetails) paymentDetails.style.display = 'none';
         } else {
-            console.log("Item not found in cart:", itemId);
+            document.getElementById('payNowOption').classList.add('selected');
+            document.getElementById('payLaterOption').classList.remove('selected');
+            if (paymentDetails) paymentDetails.style.display = 'block';
         }
-    }
-    
-    console.log("Updated cart:", cart);
-    updateCart();
-}
-
-// Clear cart
-function clearCart() {
-    if (cart.length === 0) return;
-    
-    if (confirm('Are you sure you want to clear your cart?')) {
-        cart = [];
-        updateCart();
-        showAlert('Cart cleared', 'info');
-    }
-}
-
-// Proceed to checkout
-function proceedToCheckout() {
-    const cartModal = bootstrap.Modal.getInstance(document.getElementById('cartModal'));
-    cartModal.hide();
-    
-    const checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal'));
-    checkoutModal.show();
-}
-
-// Toggle payment details based on payment method
-document.querySelectorAll('input[name="paymentMethod"]').forEach(input => {
-    input.addEventListener('change', function() {
-        const paymentDetails = document.getElementById('paymentDetails');
-        paymentDetails.style.display = this.value === 'now' ? 'block' : 'none';
-        
-        const cardInputs = paymentDetails.querySelectorAll('input');
-        cardInputs.forEach(input => {
-            input.required = this.value === 'now';
-        });
-    });
-});
-
-// Place order
-async function placeOrder() {
-    const form = document.getElementById('checkoutForm');
-    
-    if (!form.checkValidity()) {
-        form.classList.add('was-validated');
-        return;
-    }
-    
-    // Get form data
-    const tableId = document.querySelector('input[name="table_id"]').value;
-    const customerPhone = document.getElementById('phone').value;
-    const specialInstructions = document.getElementById('specialInstructions').value;
-    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-    
-    // Create order items from cart
-    const orderItems = cart.map(item => ({
-        menu_item_id: item.id,
-        quantity: item.quantity
-    }));
-    
-    // Create order data object
-    const orderData = {
-        table_id: tableId,
-        items: orderItems
     };
     
-    try {
-        const response = await fetch('/api/orders', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(orderData)
+    payLaterRadio.addEventListener('change', updatePaymentMethod);
+    payNowRadio.addEventListener('change', updatePaymentMethod);
+    
+    // Initialize payment method display
+    updatePaymentMethod();
+}
+
+// Add to cart function (exposed to global scope for onclick)
+window.addToCart = function(itemId, itemName, itemPrice) {
+    console.log('Adding to cart:', itemId, itemName, itemPrice);
+    // Check if item is already in cart
+    const existingItem = cart.items.find(item => item.menu_item_id === itemId);
+    
+    if (existingItem) {
+        // Increment quantity
+        existingItem.quantity++;
+    } else {
+        // Add new item
+        cart.items.push({
+            menu_item_id: itemId,
+            name: itemName,
+            quantity: 1,
+            unit_price: parseFloat(itemPrice)
         });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Save order to localStorage with timestamp
-            saveOrderToLocalStorage({
-                id: result.order_id,
-                date: new Date().toISOString(),
-                restaurantName: "{{ restaurant.name }}",
-                tableNumber: "{{ table.number }}",
-                customerPhone: customerPhone,
-                items: cart.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price,
-                    total: item.price * item.quantity
-                })),
-                subtotal: cart.reduce((total, item) => total + (item.price * item.quantity), 0),
-                tax: cart.reduce((total, item) => total + (item.price * item.quantity), 0) * 0.1,
-                total: cart.reduce((total, item) => total + (item.price * item.quantity), 0) * 1.1,
-                paymentMethod: paymentMethod
-            });
-            
-            // Subscribe to order status updates for notifications
-            if (window.notifications) {
-                subscribeToOrderUpdates(result.order_id);
-                window.notifications.notify(
-                    'Order Placed',
-                    {
-                        body: `Your order #${result.order_id} has been successfully placed. We'll notify you when it's ready!`,
-                        tag: `order-${result.order_id}`,
-                        requireInteraction: true
-                    }
-                );
-            }
-            
-            cart = [];
-            updateCart();
-            
-            const checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
-            checkoutModal.hide();
-            
-            showAlert('Order placed successfully! We\'ll notify you when it\'s ready.', 'success');
-            
-            // Show order history button if hidden
-            document.getElementById('viewHistoryBtn').style.display = 'block';
-        } else {
-            showAlert(result.message || 'Error placing order', 'danger');
-        }
-    } catch (error) {
-        console.error('Error placing order:', error);
-        showAlert('Error placing order. Please try again.', 'danger');
     }
+    
+    // Save cart to local storage for persistence
+    localStorage.setItem(`cart_${cart.tableId}`, JSON.stringify(cart.items));
+    
+    // Update UI
+    updateCartUI();
+    
+    // Show notification
+    showNotificationToast(`Added to cart: ${itemName}`);
+};
+
+// Remove from cart function
+window.removeFromCart = function(itemId) {
+    const index = cart.items.findIndex(item => item.menu_item_id === itemId);
+    
+    if (index !== -1) {
+        if (cart.items[index].quantity > 1) {
+            cart.items[index].quantity--;
+        } else {
+            // Remove item
+            cart.items.splice(index, 1);
+        }
+        
+        // Save to local storage
+        localStorage.setItem(`cart_${cart.tableId}`, JSON.stringify(cart.items));
+        
+        // Update UI
+        updateCartUI();
+    }
+};
+
+// Clear cart
+window.clearCart = function() {
+    cart.items = [];
+    localStorage.setItem(`cart_${cart.tableId}`, JSON.stringify(cart.items));
+    updateCartUI();
+};
+
+// Get cart total
+function getCartTotal() {
+    return cart.items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
 }
 
-// Save order to localStorage
-function saveOrderToLocalStorage(order) {
-    // Get existing orders or initialize empty array
-    const existingOrders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+// Update cart UI
+function updateCartUI() {
+    console.log('Updating cart UI');
+    if (!cartBadge || !cartItemsContainer || !modalCartItemsContainer || !cartTotalElement || !modalCartTotalElement) {
+        console.error('Missing DOM elements for cart UI');
+        return;
+    }
     
-    // Add new order to the beginning of the array
-    existingOrders.unshift(order);
+    // Update cart items count badge
+    const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cartBadge.textContent = totalItems;
     
-    // Keep only the last 10 orders
-    const trimmedOrders = existingOrders.slice(0, 10);
+    // Calculate total
+    const total = getCartTotal();
+    cartTotalElement.textContent = `${cart.currencySymbol}${total.toFixed(2)}`;
+    modalCartTotalElement.textContent = `${cart.currencySymbol}${total.toFixed(2)}`;
     
-    // Save back to localStorage
-    localStorage.setItem('orderHistory', JSON.stringify(trimmedOrders));
-}
-
-// View order history from localStorage
-function viewOrderHistory() {
-    const orders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+    // Enable/disable order button
+    if (orderButton) orderButton.disabled = total <= 0;
+    if (modalOrderButton) modalOrderButton.disabled = total <= 0;
     
-    const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
-    const historyContent = document.getElementById('historyContent');
-    
-    if (orders.length === 0) {
-        historyContent.innerHTML = `
-            <div class="text-center py-4">
-                <i class="fas fa-history fa-3x text-muted mb-3"></i>
-                <p class="mb-0">No order history</p>
-                <p class="text-muted small">Your previous orders will appear here</p>
+    // Update cart items display
+    if (cart.items.length === 0) {
+        // Show empty cart message
+        cartItemsContainer.innerHTML = `
+            <div class="cart-empty">
+                <i class="fas fa-shopping-basket"></i>
+                <p>Your cart is empty</p>
+                <p class="text-muted small">Add items from the menu to get started</p>
             </div>
         `;
+        modalCartItemsContainer.innerHTML = cartItemsContainer.innerHTML;
     } else {
-        let historyHTML = '';
+        // Render cart items
+        let itemsHTML = '';
         
-        orders.forEach((order, index) => {
-            const date = new Date(order.date).toLocaleString();
-            
-            historyHTML += `
-                <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>Order #${order.id || index + 1}</span>
-                        <span class="badge bg-secondary">${date}</span>
+        cart.items.forEach(item => {
+            itemsHTML += `
+                <div class="cart-item">
+                    <div class="cart-item-details">
+                        <h6 class="cart-item-title">${item.name}</h6>
+                        <span class="cart-item-price">${cart.currencySymbol}${item.unit_price.toFixed(2)} × ${item.quantity}</span>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <p class="mb-1"><strong>Restaurant:</strong> ${order.restaurantName}</p>
-                            <p class="mb-1"><strong>Table:</strong> ${order.tableNumber}</p>
-                            <p class="mb-0"><strong>Payment:</strong> ${order.paymentMethod === 'now' ? 'Paid' : 'Pay at Table'}</p>
-                        </div>
-                        
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th class="text-center">Qty</th>
-                                        <th class="text-end">Price</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${order.items.map(item => `
-                                        <tr>
-                                            <td>${item.name}</td>
-                                            <td class="text-center">${item.quantity}</td>
-                                            <td class="text-end">$${(item.price * item.quantity).toFixed(2)}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th colspan="2" class="text-end">Total:</th>
-                                        <th class="text-end">$${order.total.toFixed(2)}</th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
+                    <div class="cart-item-controls">
+                        <button class="btn btn-sm btn-outline-danger cart-btn" onclick="removeFromCart('${item.menu_item_id}')">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="cart-item-quantity">${item.quantity}</span>
+                        <button class="btn btn-sm btn-outline-primary cart-btn" onclick="addToCart('${item.menu_item_id}', '${item.name}', ${item.unit_price})">
+                            <i class="fas fa-plus"></i>
+                        </button>
                     </div>
                 </div>
             `;
         });
         
-        historyContent.innerHTML = historyHTML;
+        cartItemsContainer.innerHTML = itemsHTML;
+        modalCartItemsContainer.innerHTML = itemsHTML;
+    }
+}
+
+// Show notification toast
+function showNotificationToast(message) {
+    const toast = document.getElementById('notificationToast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 3000);
+}
+
+// Function to place an order
+function placeOrder() {
+    // Validate phone number
+    const customerName = document.getElementById('customerName').value;
+    const customerPhone = document.getElementById('customerPhone').value;
+    const specialInstructions = document.getElementById('specialInstructions').value;
+    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    
+    if (!customerPhone) {
+        showNotification('Please enter your phone number', 'error');
+        return;
     }
     
-    historyModal.show();
+    if (cart.items.length === 0) {
+        showNotification('Your cart is empty', 'error');
+        return;
+    }
+    
+    // Prepare order data
+    const orderData = {
+        table_id: cart.tableId,
+        items: Object.values(cart.items).map(item => ({
+            id: item.id,
+            quantity: item.quantity
+        })),
+        payment_method: paymentMethod,
+        special_instructions: specialInstructions,
+        customer_name: customerName,
+        customer_phone: customerPhone
+    };
+    
+    // Disable order button and show loading
+    const orderBtn = document.getElementById('placeOrderBtn');
+    const originalBtnText = orderBtn.innerHTML;
+    orderBtn.disabled = true;
+    orderBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    
+    // Send order to server
+    fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showNotification('Order placed successfully!', 'success');
+            
+            // Clear cart
+            clearCart();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
+            modal.hide();
+            
+            // Show receipt link
+            if (data.order_id) {
+                const receiptUrl = `/order/${data.order_id}/receipt`;
+                showOrderSuccess(receiptUrl);
+            }
+        } else {
+            showNotification(data.error || 'Failed to place order', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred. Please try again.', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        orderBtn.disabled = false;
+        orderBtn.innerHTML = originalBtnText;
+    });
 }
 
-// Show alerts
-function showAlert(message, type = 'info') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-    alertDiv.style.zIndex = '1050';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+// Function to show order success with receipt link
+function showOrderSuccess(receiptUrl) {
+    // Create order success notification
+    const successDiv = document.createElement('div');
+    successDiv.className = 'order-success';
+    successDiv.innerHTML = `
+        <div class="order-success-content">
+            <div class="order-success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Order Placed Successfully!</h3>
+            <p>Your order has been sent to the kitchen.</p>
+            <a href="${receiptUrl}" target="_blank" class="btn btn-primary mt-3">
+                <i class="fas fa-receipt me-2"></i>View Receipt
+            </a>
+            <button type="button" class="btn btn-secondary mt-2" id="closeSuccessBtn">
+                Continue Shopping
+            </button>
+        </div>
     `;
-    document.body.appendChild(alertDiv);
     
-    // Auto dismiss after 5 seconds
+    // Add to page
+    document.body.appendChild(successDiv);
+    
+    // Add animation
     setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+        successDiv.classList.add('show');
+    }, 10);
+    
+    // Handle close button
+    document.getElementById('closeSuccessBtn').addEventListener('click', () => {
+        successDiv.classList.remove('show');
+        setTimeout(() => {
+            successDiv.remove();
+        }, 300);
+    });
 }
 
-// Initialize cart on page load
-updateCart();
-
-// Add smooth scrolling for category navigation
-document.querySelectorAll('.category-nav .nav-link').forEach(link => {
-    link.addEventListener('click', function(e) {
-        e.preventDefault();
-        const targetId = this.getAttribute('href');
-        const targetElement = document.querySelector(targetId);
-        if (targetElement) {
-            targetElement.scrollIntoView({ behavior: 'smooth' });
-        }
-    });
-});
-
-// Update active category based on scroll position
-window.addEventListener('scroll', function() {
-    const categories = document.querySelectorAll('[id^="category-"]');
-    let currentCategory = null;
+// Initialize order form and cart display when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Place order button event listener
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    if (placeOrderBtn) {
+        placeOrderBtn.addEventListener('click', placeOrder);
+    }
     
-    categories.forEach(category => {
-        const rect = category.getBoundingClientRect();
-        if (rect.top <= 100) {
-            currentCategory = category.id;
-        }
-    });
+    // Payment method toggle
+    const payNow = document.getElementById('payNow');
+    const payLater = document.getElementById('payLater');
+    const paymentDetails = document.getElementById('paymentDetails');
     
-    if (currentCategory) {
-        document.querySelectorAll('.category-nav .nav-link').forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('href') === `#${currentCategory}`) {
-                link.classList.add('active');
+    if (payNow && payLater && paymentDetails) {
+        payNow.addEventListener('change', function() {
+            if (this.checked) {
+                paymentDetails.style.display = 'block';
+            }
+        });
+        
+        payLater.addEventListener('change', function() {
+            if (this.checked) {
+                paymentDetails.style.display = 'none';
             }
         });
     }
+    
+    // Initialize cart if we have a table ID
+    const tableIdInput = document.getElementById('tableId');
+    const tableNumberInput = document.getElementById('tableNumber');
+    
+    if (tableIdInput && tableNumberInput) {
+        tableIdInput.value = cart.tableId;
+        tableNumberInput.value = cart.tableNumber;
+    }
+    
+    // Update cart UI on page load
+    updateCartUI();
 });
-
-// Clear order history
-function clearOrderHistory() {
-    if (confirm('Are you sure you want to clear your order history? This cannot be undone.')) {
-        localStorage.removeItem('orderHistory');
-        document.getElementById('historyContent').innerHTML = `
-            <div class="text-center py-4">
-                <i class="fas fa-history fa-3x text-muted mb-3"></i>
-                <p class="mb-0">No order history</p>
-                <p class="text-muted small">Your previous orders will appear here</p>
-            </div>
-        `;
-        document.getElementById('viewHistoryBtn').style.display = 'none';
-    }
-}
-
-// Check for existing order history on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const orderHistory = localStorage.getItem('orderHistory');
-    if (orderHistory && JSON.parse(orderHistory).length > 0) {
-        document.getElementById('viewHistoryBtn').style.display = 'block';
-    }
-    
-    // Setup notifications
-    setupNotifications();
-});
-
-// Setup notification system
-function setupNotifications() {
-    // Create modal instance
-    const notificationModal = new bootstrap.Modal(document.getElementById('notificationModal'));
-    
-    // Get notification button and container elements
-    const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
-    const notificationModalEnableBtn = document.getElementById('notificationModalEnableBtn');
-    
-    // Get table info
-    const container = document.querySelector('.container');
-    const tableId = container.dataset.tableId;
-    const tableNumber = container.dataset.tableNumber;
-    
-    console.log(`Current table: ID=${tableId}, Number=${tableNumber}`);
-    
-    // Check if permission is already granted
-    if (Notification.permission === "granted") {
-        console.log("Notifications already enabled");
-        
-        // Update button to show enabled state
-        if (enableNotificationsBtn) {
-            enableNotificationsBtn.classList.remove('btn-primary');
-            enableNotificationsBtn.classList.add('btn-success');
-            enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
-        }
-        
-        // Subscribe to events (if not already)
-        if (window.notifications && tableId) {
-            // Get or create customer ID
-            const customerId = window.notifications.getOrCreateCustomerId();
-            console.log(`Using customer ID: ${customerId} for table ${tableId}`);
-            
-            console.log(`Subscribing to table notifications for table ID: ${tableId}`);
-            window.notifications.subscribeToEvents(tableId);
-            
-            // Get all tables this customer has been at
-            const customerTables = window.notifications.getCustomerTables();
-            console.log(`This customer has been at tables: ${customerTables.join(', ')}`);
-            
-            // Create a test notification to verify everything is working
-            setTimeout(() => {
-                console.log("Creating test notification");
-                window.notifications.showOnScreenNotification(
-                    "Notification System Ready",
-                    `You will receive order status updates for table ${tableNumber} and any other tables you've visited.`
-                );
-            }, 3000);
-        } else {
-            console.error(`Notification system not available or table ID missing`);
-        }
-    } else {
-        // Show the notification modal when the "Enable Order Notifications" button is clicked
-        if (enableNotificationsBtn) {
-            // DIRECT CONNECTION: Skip modal and directly request permission on button click
-            enableNotificationsBtn.addEventListener('click', function() {
-                // This should trigger browser's built-in notification permission dialog
-                Notification.requestPermission().then(function(permission) {
-                    if (permission === "granted") {
-                        // Get or create customer ID
-                        const customerId = window.notifications.getOrCreateCustomerId();
-                        console.log(`Permission granted. Using customer ID: ${customerId} for table ${tableId}`);
-                        
-                        if (window.notifications && tableId) {
-                            console.log(`Subscribing to table notifications for table ID: ${tableId}`);
-                            window.notifications.subscribeToEvents(tableId);
-                            
-                            // Create a test notification
-                            new Notification("Notifications Enabled", { 
-                                body: `You'll receive updates about your orders at table ${tableNumber} and any other tables you visit.`,
-                                icon: "/static/img/logo.png"
-                            });
-                            
-                            // Also show on-screen notification
-                            window.notifications.showOnScreenNotification(
-                                "Notifications Enabled",
-                                `You'll receive updates about your orders at table ${tableNumber} and any other tables you visit.`
-                            );
-                        } else {
-                            console.error(`Notification system not available or table ID missing`);
-                        }
-                        
-                        // Show success message
-                        showAlert('Notifications enabled successfully!', 'success');
-                        
-                        // Update button style
-                        enableNotificationsBtn.classList.remove('btn-primary');
-                        enableNotificationsBtn.classList.add('btn-success');
-                        enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
-                    } else {
-                        showAlert('Please enable notifications in your browser settings to receive order updates', 'warning');
-                    }
-                });
-            });
-        }
-    }
-    
-    // Add event listener to the "Enable Notifications" button in the modal
-    if (notificationModalEnableBtn) {
-        notificationModalEnableBtn.addEventListener('click', function() {
-            notificationModal.hide();
-            
-            // This should trigger browser's built-in notification permission dialog
-            Notification.requestPermission().then(function(permission) {
-                if (permission === "granted") {
-                    const container = document.querySelector('.container');
-                    const tableId = container.dataset.tableId;
-                    const tableNumber = container.dataset.tableNumber;
-                    
-                    console.log(`Permission granted for notifications. Table ID: ${tableId}`);
-                    
-                    if (window.notifications && tableId) {
-                        console.log(`Subscribing to table notifications for table ID: ${tableId}`);
-                        window.notifications.subscribeToEvents(tableId);
-                        
-                        // Create a test notification
-                        new Notification("Notifications Enabled", { 
-                            body: "You'll receive updates about your order status.",
-                            icon: "/static/img/logo.png"
-                        });
-                        
-                        // Also show on-screen notification
-                        window.notifications.showOnScreenNotification(
-                            "Notifications Enabled",
-                            "You'll receive updates about your order status."
-                        );
-                    } else {
-                        console.error(`Notification system not available or table ID missing`);
-                    }
-                    
-                    // Show success message
-                    showAlert('Notifications enabled successfully!', 'success');
-                    
-                    // Update button style
-                    const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
-                    if (enableNotificationsBtn) {
-                        enableNotificationsBtn.classList.remove('btn-primary');
-                        enableNotificationsBtn.classList.add('btn-success');
-                        enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
-                    }
-                } else {
-                    showAlert('Please enable notifications in your browser settings to receive order updates', 'warning');
-                }
-            });
-        });
-    }
-}
 </script>
 {% endblock %} 

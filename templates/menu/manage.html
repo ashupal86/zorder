@@ -30,50 +30,51 @@
                     <h5 class="card-title mb-0">{{ category.grouper or 'Uncategorized' }}</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row g-4">
+                    <div class="menu-item-grid">
                         {% for item in category.list %}
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card h-100 menu-item-card">
+                        <div class="menu-item-card">
+                            <div class="menu-item-header">
                                 {% if item.image_url %}
-                                <img src="{{ item.image_url }}" class="card-img-top" alt="{{ item.name }}">
+                                <img src="{{ item.image_url }}" class="menu-item-image" alt="{{ item.name }}">
                                 {% else %}
-                                <div class="bg-light text-center py-5">
+                                <div class="menu-item-image bg-light d-flex align-items-center justify-content-center">
                                     <i class="fas fa-utensils fa-3x text-muted"></i>
                                 </div>
                                 {% endif %}
-                                
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h5 class="card-title mb-0">{{ item.name }}</h5>
-                                        <span class="badge bg-primary">${{ "%.2f"|format(item.price) }}</span>
-                                    </div>
-                                    <p class="card-text text-muted">{{ item.description or 'No description available' }}</p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted">
-                                            <i class="fas fa-clock me-1"></i>{{ item.preparation_time }} mins
-                                        </small>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" 
-                                                   id="available{{ item.id }}"
-                                                   {% if item.is_available %}checked{% endif %}
-                                                   onchange="toggleAvailability({{ item.id }}, this.checked)">
-                                            <label class="form-check-label" for="available{{ item.id }}">Available</label>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="card-footer bg-transparent border-0 pt-0">
-                                    <div class="btn-group w-100">
-                                        <button class="btn btn-outline-primary" 
-                                                onclick="editItem({{ item.id }})">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-outline-danger" 
-                                                onclick="deleteItem({{ item.id }})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                <span class="menu-item-category">{{ item.category or 'Uncategorized' }}</span>
+                                <span class="menu-item-price">${{ "%.2f"|format(item.price) }}</span>
+                            </div>
+                            
+                            <div class="menu-item-body">
+                                <h5 class="menu-item-title">{{ item.name }}</h5>
+                                <p class="menu-item-description">{{ item.description or 'No description available' }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>{{ item.preparation_time }} mins
+                                    </small>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="available{{ item.id }}"
+                                               {% if item.is_available %}checked{% endif %}
+                                               onchange="toggleAvailability({{ item.id }}, this.checked)">
+                                        <label class="form-check-label" for="available{{ item.id }}">Available</label>
                                     </div>
                                 </div>
+                                
+                                <div class="menu-item-actions">
+                                    <button class="btn btn-sm btn-outline-primary action-btn" 
+                                            onclick="editItem({{ item.id }})" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger action-btn" 
+                                            onclick="deleteItem({{ item.id }})" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="menu-item-status {% if item.is_available %}status-available{% else %}status-unavailable{% endif %}">
+                                {% if item.is_available %}Available{% else %}Unavailable{% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -399,5 +400,158 @@ async function toggleAvailability(itemId, available) {
 function findItemById(itemId) {
     return {{ menu_items|tojson|safe }}.find(item => item.id === itemId);
 }
+
+// Add image fallback handling
+document.addEventListener('DOMContentLoaded', function() {
+    const menuItemImages = document.querySelectorAll('.menu-item-image');
+    
+    menuItemImages.forEach(img => {
+        img.onerror = function() {
+            // If the image fails to load, use a placeholder
+            this.src = '/static/img/food/placeholder.html';
+            this.onerror = null; // Prevent infinite loop
+        };
+    });
+});
 </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.menu-item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.menu-item-card {
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.menu-item-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+
+.menu-item-header {
+    position: relative;
+    height: 180px;
+    overflow: hidden;
+}
+
+.menu-item-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+
+.menu-item-card:hover .menu-item-image {
+    transform: scale(1.05);
+}
+
+.menu-item-category {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.menu-item-price {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #007bff;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.menu-item-body {
+    padding: 15px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.menu-item-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.menu-item-description {
+    color: #666;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.menu-item-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.menu-item-actions .btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}
+
+.action-btn {
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+.menu-item-status {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.status-available {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-unavailable {
+    background-color: #dc3545;
+    color: white;
+}
+</style>
 {% endblock %} 

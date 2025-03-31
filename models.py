@@ -11,6 +11,11 @@ class User(UserMixin, db.Model):
     restaurant_name = db.Column(db.String(120))
     phone = db.Column(db.String(20))
     address = db.Column(db.Text)
+    country = db.Column(db.String(2), default='US')  # Country code (ISO 2)
+    currency = db.Column(db.String(3), default='USD')  # Currency code (ISO 4217)
+    tax_rate = db.Column(db.Float, default=8.5)  # Default tax rate as percentage
+    logo_url = db.Column(db.String(500))
+    qr_code = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -26,12 +31,12 @@ class User(UserMixin, db.Model):
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     price = db.Column(db.Float, nullable=False)
-    currency = db.Column(db.String(3), default='USD')  # ISO currency code
-    category = db.Column(db.String(50))
-    image_url = db.Column(db.String(255))
+    currency = db.Column(db.String(3), default="USD")
+    image_url = db.Column(db.String(500))
+    category = db.Column(db.String(50))  # Simple category field
     preparation_time = db.Column(db.Integer, default=15)  # in minutes
     is_available = db.Column(db.Boolean, default=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -45,70 +50,117 @@ class MenuItem(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'price': float(self.price),
+            'price': self.price,
             'currency': self.currency,
-            'category': self.category,
             'image_url': self.image_url,
+            'category': self.category,
             'preparation_time': self.preparation_time,
-            'is_available': self.is_available
+            'is_available': self.is_available,
+            'user_id': self.user_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class MenuCategory(db.Model):
+    """Model for menu categories"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text)
+    image_url = db.Column(db.String(500))
+    display_order = db.Column(db.Integer, default=0)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Simplified relationship without complex joins that might cause errors
+    # We'll implement a property to get menu items instead
+    
+    def __repr__(self):
+        return f'<MenuCategory {self.name}>'
+    
+    @property
+    def menu_items(self):
+        """Get menu items for this category by name match."""
+        from models import MenuItem
+        return MenuItem.query.filter_by(
+            user_id=self.user_id,
+            category=self.name,
+            is_available=True
+        ).all()
+        
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'image_url': self.image_url,
+            'display_order': self.display_order,
+            'user_id': self.user_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 class Table(db.Model):
     """Table model for restaurant tables."""
-    __tablename__ = 'tables'
-
     id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.Integer, nullable=False)
-    capacity = db.Column(db.Integer, nullable=False, default=4)
-    is_occupied = db.Column(db.Boolean, default=False)
-    qr_code = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    number = db.Column(db.Integer, nullable=False)
+    capacity = db.Column(db.Integer, default=4)
+    status = db.Column(db.String(20), default='available')
+    qr_code = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    orders = db.relationship('Order', backref='table', lazy=True)
-
-    def __repr__(self):
-        return f'<Table {self.number}>'
+    # Define relationships
+    orders = db.relationship('Order', backref='assigned_table', lazy=True)
 
     def to_dict(self):
-        """Convert table to dictionary."""
+        """Return table as dictionary."""
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'number': self.number,
             'capacity': self.capacity,
-            'is_occupied': self.is_occupied,
-            'qr_code': self.qr_code,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'status': self.status,
+            'qr_code': self.qr_code
         }
 
 class Order(db.Model):
+    """Order model for storing order details."""
+    __tablename__ = 'orders'
+    
     id = db.Column(db.Integer, primary_key=True)
-    table_id = db.Column(db.Integer, db.ForeignKey('tables.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    customer_phone = db.Column(db.String(20))
+    table_id = db.Column(db.Integer, db.ForeignKey('table.id'), nullable=False)
     status = db.Column(db.String(20), default='pending')  # pending, preparing, ready, completed, cancelled
-    payment_method = db.Column(db.String(20))  # now, later
-    payment_status = db.Column(db.String(20), default='pending')  # pending, paid, refunded
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Order summary
     total_amount = db.Column(db.Float, default=0)
     tax_amount = db.Column(db.Float, default=0)
     final_amount = db.Column(db.Float, default=0)
-    special_instructions = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    completed_at = db.Column(db.DateTime)
+    
+    # Customer info
+    customer_name = db.Column(db.String(100), nullable=True)
+    customer_phone = db.Column(db.String(20), nullable=True)
+    
+    # Payment info
+    payment_method = db.Column(db.String(20), default='later')  # 'now' or 'later'
+    payment_status = db.Column(db.String(20), default='pending')  # 'pending', 'paid'
+    
+    # Special requests
+    special_instructions = db.Column(db.Text, nullable=True)
     
     # Relationships
-    items = db.relationship('OrderItem', backref='order', lazy=True)
-
+    items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f'<Order {self.id}>'
 
 class OrderItem(db.Model):
+    __tablename__ = 'order_item'
+    
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     menu_item_id = db.Column(db.Integer, db.ForeignKey('menu_item.id'), nullable=False)
     quantity = db.Column(db.Integer, default=1)
     unit_price = db.Column(db.Float, nullable=False)

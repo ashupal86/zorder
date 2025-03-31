@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Restaurant Profile - {{ current_user.restaurant_name or current_user.name }}{% endblock %}
+
+{% block styles %}
+<style>
+    .profile-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .profile-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #eee;
+        padding: 1.5rem;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+    }
+    
+    .qr-code-container {
+        max-width: 200px;
+        margin: 0 auto;
+    }
+    
+    .qr-code-preview {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        width: 100%;
+        height: auto;
+    }
+    
+    .qr-upload-btn {
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+    
+    .qr-upload-btn input[type=file] {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+    
+    .logo-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .form-label {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card profile-card mb-4">
+                <div class="profile-header d-flex align-items-center">
+                    <div class="me-3">
+                        {% if current_user.logo_url %}
+                        <img src="{{ current_user.logo_url }}" alt="Restaurant Logo" class="logo-preview">
+                        {% else %}
+                        <div class="logo-preview d-flex align-items-center justify-content-center bg-light">
+                            <i class="fas fa-utensils fa-2x text-secondary"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h1 class="h3 mb-1">{{ current_user.restaurant_name or current_user.name }}</h1>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-envelope me-1"></i> {{ current_user.email }}
+                            {% if current_user.phone %}
+                            <span class="ms-3"><i class="fas fa-phone me-1"></i> {{ current_user.phone }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('profile.update_profile') }}" enctype="multipart/form-data">
+                        
+                        <div class="mb-3">
+                            <label for="restaurantName" class="form-label">Restaurant Name</label>
+                            <input type="text" class="form-control" id="restaurantName" name="restaurant_name" 
+                                   value="{{ current_user.restaurant_name or current_user.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ current_user.phone or '' }}" placeholder="Enter your business phone number">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="2" 
+                                      placeholder="Enter your business address">{{ current_user.address or '' }}</textarea>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="country" class="form-label">Country</label>
+                                <select class="form-select" id="country" name="country">
+                                    <option value="">Select a country</option>
+                                    <option value="US" data-currency="USD" data-tax="8.5" {% if current_user.country == 'US' %}selected{% endif %}>United States (USD, 8.5% tax)</option>
+                                    <option value="CA" data-currency="CAD" data-tax="5.0" {% if current_user.country == 'CA' %}selected{% endif %}>Canada (CAD, 5% tax)</option>
+                                    <option value="GB" data-currency="GBP" data-tax="20.0" {% if current_user.country == 'GB' %}selected{% endif %}>United Kingdom (GBP, 20% tax)</option>
+                                    <option value="EU" data-currency="EUR" data-tax="19.0" {% if current_user.country == 'EU' %}selected{% endif %}>European Union (EUR, 19% tax)</option>
+                                    <option value="AU" data-currency="AUD" data-tax="10.0" {% if current_user.country == 'AU' %}selected{% endif %}>Australia (AUD, 10% tax)</option>
+                                    <option value="IN" data-currency="INR" data-tax="18.0" {% if current_user.country == 'IN' %}selected{% endif %}>India (INR, 18% tax)</option>
+                                    <option value="JP" data-currency="JPY" data-tax="10.0" {% if current_user.country == 'JP' %}selected{% endif %}>Japan (JPY, 10% tax)</option>
+                                    <option value="SG" data-currency="SGD" data-tax="7.0" {% if current_user.country == 'SG' %}selected{% endif %}>Singapore (SGD, 7% tax)</option>
+                                    <option value="AE" data-currency="AED" data-tax="5.0" {% if current_user.country == 'AE' %}selected{% endif %}>UAE (AED, 5% tax)</option>
+                                </select>
+                                <div class="form-text">Select your country to set currency and tax rate</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label for="currency" class="form-label">Currency</label>
+                                        <input type="text" class="form-control" id="currency" name="currency" 
+                                               value="{{ current_user.currency or 'USD' }}" readonly>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="tax_rate" class="form-label">Tax Rate (%)</label>
+                                        <input type="number" step="0.01" min="0" max="30" class="form-control" 
+                                               id="tax_rate" name="tax_rate" 
+                                               value="{{ current_user.tax_rate or 8.5 }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Restaurant Logo</label>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-outline-primary qr-upload-btn">
+                                        <i class="fas fa-upload me-2"></i>Upload Logo
+                                        <input type="file" name="logo" id="logoUpload" accept="image/*">
+                                    </button>
+                                </div>
+                                <div id="logoPreviewContainer" style="{% if not current_user.logo_url %}display: none;{% endif %}">
+                                    <div class="text-center mb-2">
+                                        <img src="{{ current_user.logo_url or '#' }}" 
+                                             id="logoPreviewImage" 
+                                             class="img-fluid rounded" 
+                                             style="max-height: 120px; max-width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Payment QR Code</label>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-outline-primary qr-upload-btn">
+                                        <i class="fas fa-qrcode me-2"></i>Upload QR Code
+                                        <input type="file" name="qr_code" id="qrUpload" accept="image/*">
+                                    </button>
+                                </div>
+                                <div id="qrPreviewContainer" style="{% if not current_user.qr_code %}display: none;{% endif %}">
+                                    <div class="text-center mb-2">
+                                        <img src="{{ current_user.qr_code or '#' }}" 
+                                             id="qrPreviewImage" 
+                                             class="img-fluid rounded" 
+                                             style="max-height: 120px; max-width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card profile-card">
+                <div class="card-header">
+                    <h5 class="mb-0">Account Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('profile.change_password') }}">
+                        
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" name="new_password" 
+                                   minlength="8" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password" 
+                                   minlength="8" required>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-key me-2"></i>Change Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Logo preview handler
+        const logoInput = document.getElementById('logoUpload');
+        const logoPreviewContainer = document.getElementById('logoPreviewContainer');
+        const logoPreviewImage = document.getElementById('logoPreviewImage');
+        
+        if (logoInput) {
+            logoInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        logoPreviewImage.src = e.target.result;
+                        logoPreviewContainer.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // QR code preview handler
+        const qrInput = document.getElementById('qrUpload');
+        const qrPreviewContainer = document.getElementById('qrPreviewContainer');
+        const qrPreviewImage = document.getElementById('qrPreviewImage');
+        
+        if (qrInput) {
+            qrInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        qrPreviewImage.src = e.target.result;
+                        qrPreviewContainer.style.display = 'block';
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Country selector handler
+        const countrySelect = document.getElementById('country');
+        const currencyInput = document.getElementById('currency');
+        const taxRateInput = document.getElementById('tax_rate');
+        
+        if (countrySelect) {
+            countrySelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    const currency = selectedOption.getAttribute('data-currency');
+                    const taxRate = selectedOption.getAttribute('data-tax');
+                    
+                    if (currencyInput) currencyInput.value = currency;
+                    if (taxRateInput) taxRateInput.value = taxRate;
+                }
+            });
+        }
+        
+        // Password confirmation validation
+        const newPassword = document.getElementById('newPassword');
+        const confirmPassword = document.getElementById('confirmPassword');
+        
+        function validatePassword() {
+            if (newPassword.value != confirmPassword.value) {
+                confirmPassword.setCustomValidity("Passwords don't match");
+            } else {
+                confirmPassword.setCustomValidity('');
+            }
+        }
+        
+        newPassword.addEventListener('change', validatePassword);
+        confirmPassword.addEventListener('keyup', validatePassword);
+    });
+</script>
+{% endblock %} 

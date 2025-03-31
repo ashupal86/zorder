@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-from flask_login import LoginManager
+from flask_login import LoginManager, login_required
+import logging
 
 # Import extensions
 from extensions import db, migrate, login_manager, socketio
@@ -13,7 +14,13 @@ from routes.auth import auth_bp
 from routes.menu import menu_bp
 from routes.table import table_bp
 from routes.orders import orders
-from routes.socket_notifications import register_notification_handlers, push_blueprint
+from routes.profile import profile_bp
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Load environment variables
 load_dotenv()
@@ -33,11 +40,6 @@ def create_app(config=None):
         app.config['SERVER_NAME'] = os.environ.get('SERVER_NAME')
     app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'http')
     
-    # VAPID keys for Web Push Notifications
-    app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', 'BDPQoiUyGUxNMKfyjHyuRu8IoS5ytMGHNhrPBFUJ6C0ylsJ64Ku5tVfKfEqD4ahT0-N7iU-f6Ss8sTZ04i78XBw')
-    app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', 'I8QsjTuHvUhEjG3Vk7O8OD24eVjcjCz1ElMNXWqBm0A')
-    app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', 'contact@digitalwaiter.com')
-    
     # Apply any extra config
     if config is not None:
         if isinstance(config, dict):
@@ -54,6 +56,7 @@ def create_app(config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    socketio.init_app(app)
     
     @login_manager.user_loader
     def load_user(user_id):
@@ -64,23 +67,33 @@ def create_app(config=None):
     app.register_blueprint(menu_bp)
     app.register_blueprint(table_bp)
     app.register_blueprint(orders)
-    app.register_blueprint(push_blueprint)
+    app.register_blueprint(profile_bp)
     
-    # Initialize Socket.IO with the app
-    socketio.init_app(app, cors_allowed_origins="*")
+    # Import the socket notifications blueprint after initializing socketio
+    from routes.socket_notifications import notification_bp
+    app.register_blueprint(notification_bp)
     
-    # Register notification handlers
-    with app.app_context():
-        register_notification_handlers()
+    # Add direct routes for table management at root level
+    @app.route('/tables', methods=['POST'])
+    def root_add_table():
+        from routes.table import add_table
+        return add_table()
+    
+    # Add direct route for automatically adding tables
+    @app.route('/auto-add-table', methods=['POST'])
+    def root_auto_add_table():
+        from routes.table import auto_add_table
+        return auto_add_table()
+    
+    # Add direct route for order status updates
+    @app.route('/order/<int:order_id>/status', methods=['PUT'])
+    def root_update_order_status(order_id):
+        from routes.orders import update_order_status
+        return update_order_status(order_id)
     
     @app.route('/')
     def index():
         return render_template('index.html')
-    
-    @app.context_processor
-    def inject_vapid_key():
-        """Make VAPID public key available to all templates."""
-        return {'vapid_public_key': app.config['VAPID_PUBLIC_KEY']}
     
     return app
 
@@ -92,4 +105,5 @@ with app.app_context():
     db.create_all()
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5001, debug=True) 
+    # Run with socketio instead of app.run
+    socketio.run(app, host='0.0.0.0', port=5001, debug=True, allow_unsafe_werkzeug=True) 
