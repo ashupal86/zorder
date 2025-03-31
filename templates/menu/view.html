@@ -72,11 +72,28 @@
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-4" 
+     data-table-id="{{ table.id }}" 
+     data-table-number="{{ table.number }}">
     <!-- Restaurant Info -->
     <div class="text-center mb-5">
         <h1 class="display-4 mb-2">{{ restaurant.name }}</h1>
         <p class="lead text-muted">Table {{ table.number }}</p>
+        <div class="d-flex justify-content-center gap-2">
+            <button id="viewHistoryBtn" class="btn btn-sm btn-outline-secondary" onclick="viewOrderHistory()" style="display: none;">
+                <i class="fas fa-history me-2"></i>View Order History
+            </button>
+            <button id="enableNotificationsBtn" class="btn btn-sm btn-primary">
+                <i class="fas fa-bell me-2"></i>Enable Order Notifications
+            </button>
+        </div>
+    </div>
+
+    <!-- Add this before the cart section, right after the table number display -->
+    <div class="mt-2 mb-3">
+        <a href="/notifications/debug" target="_blank" class="btn btn-warning btn-sm">
+            <i class="fas fa-tools me-1"></i> Debug Notifications
+        </a>
     </div>
 
     <!-- Cart Button -->
@@ -142,7 +159,12 @@
                             </div>
                             <div class="card-footer bg-transparent border-0 pb-3">
                                 <button class="btn btn-outline-primary add-to-cart-btn" 
-                                        onclick="addToCart({{ item|tojson|safe }})">
+                                        data-id="{{ item.original_id }}"
+                                        data-name="{{ item.name }}"
+                                        data-price="{{ item.price }}"
+                                        data-currency="{{ item.currency }}"
+                                        data-preparation-time="{{ item.preparation_time }}"
+                                        onclick="addToCartById(this)">
                                     <i class="fas fa-plus me-2"></i>Add to Order
                                 </button>
                             </div>
@@ -219,6 +241,9 @@
             </div>
             <div class="modal-body">
                 <form id="checkoutForm" class="needs-validation" novalidate>
+                    <!-- Hidden table_id field -->
+                    <input type="hidden" name="table_id" value="{{ table.id }}">
+                    
                     <div class="mb-4">
                         <label for="phone" class="form-label">Phone Number</label>
                         <div class="input-group">
@@ -288,38 +313,112 @@
         </div>
     </div>
 </div>
+
+<!-- Notification Permission Modal -->
+<div class="modal fade" id="notificationModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center px-4 pb-5">
+                <div class="mb-4">
+                    <i class="fas fa-bell fa-4x text-primary mb-3"></i>
+                    <h4 class="mb-3">Enable Notifications</h4>
+                    <p class="text-muted mb-4">
+                        We need your permission to send notifications about your order status. 
+                        You'll be notified when your order is being prepared, ready, or completed.
+                    </p>
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="notificationModalEnableBtn" class="btn btn-primary btn-lg">
+                        <i class="fas fa-bell me-2"></i>Enable Notifications
+                    </button>
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Maybe Later
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>Order History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historyContent">
+                    <!-- Order history will be populated via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" onclick="clearOrderHistory()">
+                    <i class="fas fa-trash me-2"></i>Clear History
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Initialize cart
 let cart = [];
 
-// Add item to cart
-function addToCart(item) {
-    const existingItem = cart.find(i => i.id === item.id);
+// Add item to cart using data attributes
+function addToCartById(button) {
+    const itemId = button.getAttribute('data-id');
+    const itemName = button.getAttribute('data-name');
+    const itemPrice = parseFloat(button.getAttribute('data-price'));
+    const itemCurrency = button.getAttribute('data-currency');
+    const itemPrepTime = button.getAttribute('data-preparation-time');
+    
+    console.log("Adding item to cart:", {id: itemId, name: itemName, price: itemPrice});
+    
+    const existingItem = cart.find(i => i.id === itemId);
     
     if (existingItem) {
         existingItem.quantity += 1;
+        console.log("Updated existing item quantity:", existingItem);
     } else {
-        cart.push({
-            ...item,
+        const newItem = {
+            id: itemId,
+            name: itemName,
+            price: itemPrice,
+            currency: itemCurrency,
+            preparation_time: itemPrepTime,
             quantity: 1
-        });
+        };
+        cart.push(newItem);
+        console.log("Added new item to cart:", newItem);
     }
     
+    console.log("Current cart:", cart);
     updateCart();
     showAlert('Item added to cart', 'success');
 }
 
 // Update cart display
 function updateCart() {
+    console.log("Updating cart display. Current cart:", cart);
     const cartItems = document.getElementById('cartItems');
     const cartEmpty = document.getElementById('cartEmpty');
     const cartTotal = document.getElementById('cartTotal');
     const cartCount = document.getElementById('cartCount');
     const checkoutBtn = document.getElementById('checkoutBtn');
     
-    cartCount.textContent = cart.reduce((total, item) => total + item.quantity, 0);
+    // Update cart count
+    const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+    cartCount.textContent = totalItems;
     
     if (cart.length === 0) {
         cartItems.innerHTML = '';
@@ -333,8 +432,12 @@ function updateCart() {
     cartTotal.style.display = 'block';
     checkoutBtn.disabled = false;
     
-    cartItems.innerHTML = cart.map(item => `
-        <div class="card mb-3 border-0 shadow-sm">
+    // Generate cart items HTML
+    cartItems.innerHTML = '';
+    cart.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'card mb-3 border-0 shadow-sm';
+        itemElement.innerHTML = `
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
@@ -346,44 +449,55 @@ function updateCart() {
                     <div class="ms-3">
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-primary" 
-                                    onclick="updateQuantity(${item.id}, ${item.quantity - 1})">
+                                    onclick="updateQuantity('${item.id}', ${item.quantity - 1})">
                                 <i class="fas fa-minus"></i>
                             </button>
                             <button class="btn btn-outline-primary" disabled>
                                 ${item.quantity}
                             </button>
                             <button class="btn btn-outline-primary" 
-                                    onclick="updateQuantity(${item.id}, ${item.quantity + 1})">
+                                    onclick="updateQuantity('${item.id}', ${item.quantity + 1})">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+        cartItems.appendChild(itemElement);
+    });
     
     // Update totals
-    const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.1;
-    const total = subtotal + tax;
-    
-    document.getElementById('subtotal').textContent = `${cart[0].currency} ${subtotal.toFixed(2)}`;
-    document.getElementById('tax').textContent = `${cart[0].currency} ${tax.toFixed(2)}`;
-    document.getElementById('total').textContent = `${cart[0].currency} ${total.toFixed(2)}`;
+    if (cart.length > 0) {
+        const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+        const tax = subtotal * 0.1;
+        const total = subtotal + tax;
+        const currency = cart[0].currency;
+        
+        document.getElementById('subtotal').textContent = `${currency} ${subtotal.toFixed(2)}`;
+        document.getElementById('tax').textContent = `${currency} ${tax.toFixed(2)}`;
+        document.getElementById('total').textContent = `${currency} ${total.toFixed(2)}`;
+    }
 }
 
 // Update item quantity
 function updateQuantity(itemId, quantity) {
+    console.log("Updating quantity for item ID:", itemId, "to", quantity);
+    
     if (quantity <= 0) {
+        console.log("Removing item from cart");
         cart = cart.filter(item => item.id !== itemId);
     } else {
         const item = cart.find(item => item.id === itemId);
         if (item) {
             item.quantity = quantity;
+            console.log("Updated item quantity:", item);
+        } else {
+            console.log("Item not found in cart:", itemId);
         }
     }
     
+    console.log("Updated cart:", cart);
     updateCart();
 }
 
@@ -429,20 +543,26 @@ async function placeOrder() {
         return;
     }
     
+    // Get form data
+    const tableId = document.querySelector('input[name="table_id"]').value;
+    const customerPhone = document.getElementById('phone').value;
+    const specialInstructions = document.getElementById('specialInstructions').value;
+    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    
+    // Create order items from cart
+    const orderItems = cart.map(item => ({
+        menu_item_id: item.id,
+        quantity: item.quantity
+    }));
+    
+    // Create order data object
     const orderData = {
-        table_id: {{ table.id }},
-        customer_phone: document.getElementById('phone').value,
-        items: cart.map(item => ({
-            menu_item_id: item.id,
-            quantity: item.quantity,
-            unit_price: item.price,
-            special_instructions: document.getElementById('specialInstructions').value
-        })),
-        payment_method: document.querySelector('input[name="paymentMethod"]:checked').value
+        table_id: tableId,
+        items: orderItems
     };
     
     try {
-        const response = await fetch('/orders/create', {
+        const response = await fetch('/api/orders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -453,6 +573,38 @@ async function placeOrder() {
         const result = await response.json();
         
         if (result.success) {
+            // Save order to localStorage with timestamp
+            saveOrderToLocalStorage({
+                id: result.order_id,
+                date: new Date().toISOString(),
+                restaurantName: "{{ restaurant.name }}",
+                tableNumber: "{{ table.number }}",
+                customerPhone: customerPhone,
+                items: cart.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    total: item.price * item.quantity
+                })),
+                subtotal: cart.reduce((total, item) => total + (item.price * item.quantity), 0),
+                tax: cart.reduce((total, item) => total + (item.price * item.quantity), 0) * 0.1,
+                total: cart.reduce((total, item) => total + (item.price * item.quantity), 0) * 1.1,
+                paymentMethod: paymentMethod
+            });
+            
+            // Subscribe to order status updates for notifications
+            if (window.notifications) {
+                subscribeToOrderUpdates(result.order_id);
+                window.notifications.notify(
+                    'Order Placed',
+                    {
+                        body: `Your order #${result.order_id} has been successfully placed. We'll notify you when it's ready!`,
+                        tag: `order-${result.order_id}`,
+                        requireInteraction: true
+                    }
+                );
+            }
+            
             cart = [];
             updateCart();
             
@@ -460,6 +612,9 @@ async function placeOrder() {
             checkoutModal.hide();
             
             showAlert('Order placed successfully! We\'ll notify you when it\'s ready.', 'success');
+            
+            // Show order history button if hidden
+            document.getElementById('viewHistoryBtn').style.display = 'block';
         } else {
             showAlert(result.message || 'Error placing order', 'danger');
         }
@@ -467,6 +622,92 @@ async function placeOrder() {
         console.error('Error placing order:', error);
         showAlert('Error placing order. Please try again.', 'danger');
     }
+}
+
+// Save order to localStorage
+function saveOrderToLocalStorage(order) {
+    // Get existing orders or initialize empty array
+    const existingOrders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+    
+    // Add new order to the beginning of the array
+    existingOrders.unshift(order);
+    
+    // Keep only the last 10 orders
+    const trimmedOrders = existingOrders.slice(0, 10);
+    
+    // Save back to localStorage
+    localStorage.setItem('orderHistory', JSON.stringify(trimmedOrders));
+}
+
+// View order history from localStorage
+function viewOrderHistory() {
+    const orders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+    
+    const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+    const historyContent = document.getElementById('historyContent');
+    
+    if (orders.length === 0) {
+        historyContent.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <p class="mb-0">No order history</p>
+                <p class="text-muted small">Your previous orders will appear here</p>
+            </div>
+        `;
+    } else {
+        let historyHTML = '';
+        
+        orders.forEach((order, index) => {
+            const date = new Date(order.date).toLocaleString();
+            
+            historyHTML += `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Order #${order.id || index + 1}</span>
+                        <span class="badge bg-secondary">${date}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <p class="mb-1"><strong>Restaurant:</strong> ${order.restaurantName}</p>
+                            <p class="mb-1"><strong>Table:</strong> ${order.tableNumber}</p>
+                            <p class="mb-0"><strong>Payment:</strong> ${order.paymentMethod === 'now' ? 'Paid' : 'Pay at Table'}</p>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-end">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${order.items.map(item => `
+                                        <tr>
+                                            <td>${item.name}</td>
+                                            <td class="text-center">${item.quantity}</td>
+                                            <td class="text-end">$${(item.price * item.quantity).toFixed(2)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="2" class="text-end">Total:</th>
+                                        <th class="text-end">$${order.total.toFixed(2)}</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        historyContent.innerHTML = historyHTML;
+    }
+    
+    historyModal.show();
 }
 
 // Show alerts
@@ -522,5 +763,179 @@ window.addEventListener('scroll', function() {
         });
     }
 });
+
+// Clear order history
+function clearOrderHistory() {
+    if (confirm('Are you sure you want to clear your order history? This cannot be undone.')) {
+        localStorage.removeItem('orderHistory');
+        document.getElementById('historyContent').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <p class="mb-0">No order history</p>
+                <p class="text-muted small">Your previous orders will appear here</p>
+            </div>
+        `;
+        document.getElementById('viewHistoryBtn').style.display = 'none';
+    }
+}
+
+// Check for existing order history on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const orderHistory = localStorage.getItem('orderHistory');
+    if (orderHistory && JSON.parse(orderHistory).length > 0) {
+        document.getElementById('viewHistoryBtn').style.display = 'block';
+    }
+    
+    // Setup notifications
+    setupNotifications();
+});
+
+// Setup notification system
+function setupNotifications() {
+    // Create modal instance
+    const notificationModal = new bootstrap.Modal(document.getElementById('notificationModal'));
+    
+    // Get notification button and container elements
+    const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
+    const notificationModalEnableBtn = document.getElementById('notificationModalEnableBtn');
+    
+    // Get table info
+    const container = document.querySelector('.container');
+    const tableId = container.dataset.tableId;
+    const tableNumber = container.dataset.tableNumber;
+    
+    console.log(`Current table: ID=${tableId}, Number=${tableNumber}`);
+    
+    // Check if permission is already granted
+    if (Notification.permission === "granted") {
+        console.log("Notifications already enabled");
+        
+        // Update button to show enabled state
+        if (enableNotificationsBtn) {
+            enableNotificationsBtn.classList.remove('btn-primary');
+            enableNotificationsBtn.classList.add('btn-success');
+            enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
+        }
+        
+        // Subscribe to events (if not already)
+        if (window.notifications && tableId) {
+            // Get or create customer ID
+            const customerId = window.notifications.getOrCreateCustomerId();
+            console.log(`Using customer ID: ${customerId} for table ${tableId}`);
+            
+            console.log(`Subscribing to table notifications for table ID: ${tableId}`);
+            window.notifications.subscribeToEvents(tableId);
+            
+            // Get all tables this customer has been at
+            const customerTables = window.notifications.getCustomerTables();
+            console.log(`This customer has been at tables: ${customerTables.join(', ')}`);
+            
+            // Create a test notification to verify everything is working
+            setTimeout(() => {
+                console.log("Creating test notification");
+                window.notifications.showOnScreenNotification(
+                    "Notification System Ready",
+                    `You will receive order status updates for table ${tableNumber} and any other tables you've visited.`
+                );
+            }, 3000);
+        } else {
+            console.error(`Notification system not available or table ID missing`);
+        }
+    } else {
+        // Show the notification modal when the "Enable Order Notifications" button is clicked
+        if (enableNotificationsBtn) {
+            // DIRECT CONNECTION: Skip modal and directly request permission on button click
+            enableNotificationsBtn.addEventListener('click', function() {
+                // This should trigger browser's built-in notification permission dialog
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === "granted") {
+                        // Get or create customer ID
+                        const customerId = window.notifications.getOrCreateCustomerId();
+                        console.log(`Permission granted. Using customer ID: ${customerId} for table ${tableId}`);
+                        
+                        if (window.notifications && tableId) {
+                            console.log(`Subscribing to table notifications for table ID: ${tableId}`);
+                            window.notifications.subscribeToEvents(tableId);
+                            
+                            // Create a test notification
+                            new Notification("Notifications Enabled", { 
+                                body: `You'll receive updates about your orders at table ${tableNumber} and any other tables you visit.`,
+                                icon: "/static/img/logo.png"
+                            });
+                            
+                            // Also show on-screen notification
+                            window.notifications.showOnScreenNotification(
+                                "Notifications Enabled",
+                                `You'll receive updates about your orders at table ${tableNumber} and any other tables you visit.`
+                            );
+                        } else {
+                            console.error(`Notification system not available or table ID missing`);
+                        }
+                        
+                        // Show success message
+                        showAlert('Notifications enabled successfully!', 'success');
+                        
+                        // Update button style
+                        enableNotificationsBtn.classList.remove('btn-primary');
+                        enableNotificationsBtn.classList.add('btn-success');
+                        enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
+                    } else {
+                        showAlert('Please enable notifications in your browser settings to receive order updates', 'warning');
+                    }
+                });
+            });
+        }
+    }
+    
+    // Add event listener to the "Enable Notifications" button in the modal
+    if (notificationModalEnableBtn) {
+        notificationModalEnableBtn.addEventListener('click', function() {
+            notificationModal.hide();
+            
+            // This should trigger browser's built-in notification permission dialog
+            Notification.requestPermission().then(function(permission) {
+                if (permission === "granted") {
+                    const container = document.querySelector('.container');
+                    const tableId = container.dataset.tableId;
+                    const tableNumber = container.dataset.tableNumber;
+                    
+                    console.log(`Permission granted for notifications. Table ID: ${tableId}`);
+                    
+                    if (window.notifications && tableId) {
+                        console.log(`Subscribing to table notifications for table ID: ${tableId}`);
+                        window.notifications.subscribeToEvents(tableId);
+                        
+                        // Create a test notification
+                        new Notification("Notifications Enabled", { 
+                            body: "You'll receive updates about your order status.",
+                            icon: "/static/img/logo.png"
+                        });
+                        
+                        // Also show on-screen notification
+                        window.notifications.showOnScreenNotification(
+                            "Notifications Enabled",
+                            "You'll receive updates about your order status."
+                        );
+                    } else {
+                        console.error(`Notification system not available or table ID missing`);
+                    }
+                    
+                    // Show success message
+                    showAlert('Notifications enabled successfully!', 'success');
+                    
+                    // Update button style
+                    const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
+                    if (enableNotificationsBtn) {
+                        enableNotificationsBtn.classList.remove('btn-primary');
+                        enableNotificationsBtn.classList.add('btn-success');
+                        enableNotificationsBtn.innerHTML = '<i class="fas fa-bell me-2"></i>Notifications Enabled';
+                    }
+                } else {
+                    showAlert('Please enable notifications in your browser settings to receive order updates', 'warning');
+                }
+            });
+        });
+    }
+}
 </script>
 {% endblock %} 

@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}Table {{ table.number }} - Digital Waiter{% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Table {{ table.number }}</h1>
+    <div id="notification-area" class="notification-container"></div>
+</div>
+
+<div class="order-section">
+    <h2>Place Your Order</h2>
+    <div class="menu-container">
+        {% for category in menu_items|groupby('category') %}
+        <div class="menu-category">
+            <h3>{{ category.grouper }}</h3>
+            <div class="menu-items">
+                {% for item in category.list %}
+                <div class="menu-item" data-id="{{ item.id }}">
+                    <div class="menu-item-img">
+                        {% if item.image_url %}
+                        <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                        {% else %}
+                        <div class="placeholder-img">No Image</div>
+                        {% endif %}
+                    </div>
+                    <div class="menu-item-details">
+                        <h4>{{ item.name }}</h4>
+                        <p class="menu-item-description">{{ item.description }}</p>
+                        <p class="menu-item-price">${{ item.price|round(2) }}</p>
+                    </div>
+                    <div class="menu-item-actions">
+                        <button class="decrease-btn" onclick="decreaseQuantity({{ item.id }})">-</button>
+                        <span class="quantity" id="quantity-{{ item.id }}">0</span>
+                        <button class="increase-btn" onclick="increaseQuantity({{ item.id }})">+</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="cart-section">
+    <h2>Your Order</h2>
+    <div id="cart-items" class="cart-items-container">
+        <!-- Cart items will be displayed here -->
+        <div class="empty-cart-message">Your cart is empty</div>
+    </div>
+    <div class="cart-total">
+        <p>Total: $<span id="cart-total">0.00</span></p>
+    </div>
+    <button id="place-order-btn" class="primary-btn" disabled>Place Order</button>
+</div>
+
+<div id="active-orders" class="active-orders-section">
+    <h2>Your Active Orders</h2>
+    <div class="orders-container">
+        <!-- Active orders will be displayed here -->
+    </div>
+</div>
+
+<div id="notification-sound-toggle" class="notification-toggle">
+    <label for="sound-toggle">
+        <input type="checkbox" id="sound-toggle" checked>
+        Sound Notifications
+    </label>
+</div>
+
+<!-- Order Success Modal -->
+<div id="order-success-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2>Order Placed Successfully!</h2>
+        <p>Your order has been received and is being processed.</p>
+        <p>Order #<span id="order-number"></span></p>
+        <button id="close-modal-btn" class="secondary-btn">Close</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cart = {};
+    const tableId = {{ table.id }};
+    
+    // Initialize Socket.IO for notifications
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Socket.IO notification manager
+        notificationManager.init();
+        
+        // Subscribe to table notifications
+        notificationManager.subscribeToTable(tableId);
+        
+        // Add event listeners for notifications
+        notificationManager.addEventListener('notification', function(notification) {
+            console.log('Received notification:', notification);
+            
+            // Update order status if this is an order status notification
+            if (notification.type === 'order_status') {
+                updateOrderStatus(notification.data);
+            }
+            
+            // Display notification
+            displayNotification(notification.title, notification.body);
+        });
+        
+        // Sound toggle functionality
+        const soundToggle = document.getElementById('sound-toggle');
+        soundToggle.checked = notificationManager.soundEnabled;
+        
+        soundToggle.addEventListener('change', function() {
+            notificationManager.toggleSound(this.checked);
+        });
+        
+        // Fetch active orders on page load
+        fetchActiveOrders();
+        
+        // Set up refresh interval for active orders
+        setInterval(fetchActiveOrders, 30000);  // Refresh every 30 seconds
+    });
+    
+    // Increase item quantity
+    function increaseQuantity(itemId) {
+        const quantityElement = document.getElementById(`quantity-${itemId}`);
+        let quantity = parseInt(quantityElement.textContent) || 0;
+        quantity++;
+        quantityElement.textContent = quantity;
+        
+        // Update cart
+        updateCart(itemId, quantity);
+    }
+    
+    // Decrease item quantity
+    function decreaseQuantity(itemId) {
+        const quantityElement = document.getElementById(`quantity-${itemId}`);
+        let quantity = parseInt(quantityElement.textContent) || 0;
+        if (quantity > 0) {
+            quantity--;
+            quantityElement.textContent = quantity;
+            
+            // Update cart
+            updateCart(itemId, quantity);
+        }
+    }
+    
+    // Update cart with item
+    function updateCart(itemId, quantity) {
+        // Find the menu item
+        const menuItem = document.querySelector(`.menu-item[data-id="${itemId}"]`);
+        const name = menuItem.querySelector('h4').textContent;
+        const price = parseFloat(menuItem.querySelector('.menu-item-price').textContent.replace('$', ''));
+        
+        if (quantity > 0) {
+            cart[itemId] = {
+                id: itemId,
+                name: name,
+                price: price,
+                quantity: quantity
+            };
+        } else {
+            delete cart[itemId];
+        }
+        
+        // Update cart display
+        updateCartDisplay();
+    }
+    
+    // Update cart display
+    function updateCartDisplay() {
+        const cartItems = document.getElementById('cart-items');
+        const cartTotal = document.getElementById('cart-total');
+        const placeOrderBtn = document.getElementById('place-order-btn');
+        
+        // Clear cart display
+        cartItems.innerHTML = '';
+        
+        let total = 0;
+        const items = Object.values(cart);
+        
+        if (items.length > 0) {
+            items.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                const cartItem = document.createElement('div');
+                cartItem.className = 'cart-item';
+                cartItem.innerHTML = `
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-quantity">x${item.quantity}</div>
+                    <div class="cart-item-price">$${itemTotal.toFixed(2)}</div>
+                `;
+                cartItems.appendChild(cartItem);
+            });
+            
+            // Enable place order button
+            placeOrderBtn.disabled = false;
+        } else {
+            const emptyCart = document.createElement('div');
+            emptyCart.className = 'empty-cart-message';
+            emptyCart.textContent = 'Your cart is empty';
+            cartItems.appendChild(emptyCart);
+            
+            // Disable place order button
+            placeOrderBtn.disabled = true;
+        }
+        
+        // Update total
+        cartTotal.textContent = total.toFixed(2);
+    }
+    
+    // Fetch active orders
+    function fetchActiveOrders() {
+        fetch(`/api/table/${tableId}/orders`)
+            .then(response => response.json())
+            .then(data => {
+                updateActiveOrders(data.orders);
+            })
+            .catch(error => {
+                console.error('Error fetching active orders:', error);
+            });
+    }
+    
+    // Update active orders display
+    function updateActiveOrders(orders) {
+        const ordersContainer = document.querySelector('.active-orders-section .orders-container');
+        ordersContainer.innerHTML = '';
+        
+        if (orders.length > 0) {
+            orders.forEach(order => {
+                const orderElement = createOrderElement(order);
+                ordersContainer.appendChild(orderElement);
+            });
+        } else {
+            const emptyOrders = document.createElement('div');
+            emptyOrders.className = 'empty-orders-message';
+            emptyOrders.textContent = 'No active orders';
+            ordersContainer.appendChild(emptyOrders);
+        }
+    }
+    
+    // Create order element
+    function createOrderElement(order) {
+        const orderElement = document.createElement('div');
+        orderElement.className = 'order-card';
+        orderElement.id = `order-${order.id}`;
+        orderElement.dataset.status = order.status;
+        
+        // Create header
+        const orderHeader = document.createElement('div');
+        orderHeader.className = 'order-header';
+        
+        const orderNumber = document.createElement('div');
+        orderNumber.className = 'order-number';
+        orderNumber.textContent = `Order #${order.id}`;
+        
+        const orderStatus = document.createElement('div');
+        orderStatus.className = 'order-status';
+        orderStatus.dataset.status = order.status;
+        orderStatus.textContent = capitalizeFirstLetter(order.status);
+        
+        orderHeader.appendChild(orderNumber);
+        orderHeader.appendChild(orderStatus);
+        
+        // Create items list
+        const orderItems = document.createElement('div');
+        orderItems.className = 'order-items';
+        
+        order.items.forEach(item => {
+            const orderItem = document.createElement('div');
+            orderItem.className = 'order-item';
+            orderItem.innerHTML = `
+                <div class="order-item-name">${item.name}</div>
+                <div class="order-item-quantity">x${item.quantity}</div>
+            `;
+            orderItems.appendChild(orderItem);
+        });
+        
+        // Create timestamp
+        const orderTime = document.createElement('div');
+        orderTime.className = 'order-time';
+        
+        const orderDate = new Date(order.created_at);
+        orderTime.textContent = orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        // Assemble order card
+        orderElement.appendChild(orderHeader);
+        orderElement.appendChild(orderItems);
+        orderElement.appendChild(orderTime);
+        
+        return orderElement;
+    }
+    
+    // Update order status
+    function updateOrderStatus(data) {
+        const orderElement = document.getElementById(`order-${data.orderId}`);
+        if (orderElement) {
+            // Update status display
+            const statusElement = orderElement.querySelector('.order-status');
+            statusElement.textContent = capitalizeFirstLetter(data.status);
+            statusElement.dataset.status = data.status;
+            
+            // Update order card status
+            orderElement.dataset.status = data.status;
+            
+            // If status is completed, fade out and remove after animation
+            if (data.status === 'completed') {
+                orderElement.classList.add('fade-out');
+                setTimeout(() => {
+                    orderElement.remove();
+                    
+                    // Check if there are any orders left
+                    const ordersContainer = document.querySelector('.active-orders-section .orders-container');
+                    if (ordersContainer.children.length === 0) {
+                        const emptyOrders = document.createElement('div');
+                        emptyOrders.className = 'empty-orders-message';
+                        emptyOrders.textContent = 'No active orders';
+                        ordersContainer.appendChild(emptyOrders);
+                    }
+                }, 1000);
+            }
+        } else {
+            // Order not in the active orders list, might be new
+            // Refresh the active orders list
+            fetchActiveOrders();
+        }
+    }
+    
+    // Display notification
+    function displayNotification(title, message) {
+        const notificationArea = document.getElementById('notification-area');
+        
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        
+        const notificationTitle = document.createElement('div');
+        notificationTitle.className = 'notification-title';
+        notificationTitle.textContent = title;
+        
+        const notificationMessage = document.createElement('div');
+        notificationMessage.className = 'notification-message';
+        notificationMessage.textContent = message;
+        
+        notification.appendChild(notificationTitle);
+        notification.appendChild(notificationMessage);
+        
+        notificationArea.appendChild(notification);
+        
+        // Slide in animation
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 10);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 5000);
+    }
+    
+    // Place order
+    document.getElementById('place-order-btn').addEventListener('click', function() {
+        const orderItems = Object.values(cart).map(item => ({
+            menu_item_id: item.id,
+            quantity: item.quantity
+        }));
+        
+        // Send order to server
+        fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                table_id: tableId,
+                items: orderItems
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success modal
+                document.getElementById('order-number').textContent = data.order_id;
+                document.getElementById('order-success-modal').style.display = 'block';
+                
+                // Clear cart
+                cart = {};
+                updateCartDisplay();
+                
+                // Reset quantities
+                document.querySelectorAll('.quantity').forEach(element => {
+                    element.textContent = '0';
+                });
+                
+                // Refresh active orders
+                fetchActiveOrders();
+            } else {
+                console.error('Error placing order:', data.message);
+                alert('Error placing order: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error placing order:', error);
+            alert('Error placing order. Please try again.');
+        });
+    });
+    
+    // Modal close events
+    document.querySelector('.close-modal').addEventListener('click', function() {
+        document.getElementById('order-success-modal').style.display = 'none';
+    });
+    
+    document.getElementById('close-modal-btn').addEventListener('click', function() {
+        document.getElementById('order-success-modal').style.display = 'none';
+    });
+    
+    window.addEventListener('click', function(event) {
+        if (event.target === document.getElementById('order-success-modal')) {
+            document.getElementById('order-success-modal').style.display = 'none';
+        }
+    });
+    
+    // Helper function to capitalize first letter
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+</script>
+{% endblock %} 

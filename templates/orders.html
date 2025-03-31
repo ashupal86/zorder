@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - {{ restaurant_name }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/socket-notifications.css') }}">
+<style>
+    .order-card {
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .order-actions {
+        margin-top: 10px;
+    }
+    
+    .order-item {
+        margin-bottom: 5px;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin-right: 5px;
+        font-size: 0.85rem;
+    }
+    
+    .status-pending {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .status-preparing {
+        background-color: #17a2b8;
+        color: white;
+    }
+    
+    .status-ready {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .status-completed {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .highlight {
+        animation: highlight 2s ease-in-out;
+    }
+    
+    @keyframes highlight {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+    
+    #order-list-container {
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+    }
+    
+    .section-title {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="fas fa-utensils me-2"></i> {{ restaurant_name }} Orders
+        <button id="refresh-btn" class="btn btn-sm btn-outline-primary float-end">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </h1>
+    
+    <div id="notification-alert" class="alert alert-warning d-none" role="alert">
+        <i class="fas fa-bell me-2"></i>
+        <span id="notification-message">New notification received</span>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <h2 class="section-title">Active Orders</h2>
+            <div id="order-list-container">
+                <div id="active-orders">
+                    <div class="text-center py-5" id="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading orders...</p>
+                    </div>
+                    
+                    <div id="no-orders-message" class="alert alert-info d-none">
+                        <i class="fas fa-info-circle me-2"></i> No active orders at the moment.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <h2 class="section-title">Recent Completed Orders</h2>
+            <div id="completed-orders">
+                {% for order in completed_orders %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Order #{{ order.id }}</strong>
+                        <span class="float-end">Table {{ order.table.number }}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><small class="text-muted">{{ order.updated_at.strftime('%H:%M:%S') }}</small></p>
+                        <ul class="list-unstyled">
+                            {% for item in order.items %}
+                            <li>{{ item.quantity }}x {{ item.menu_item.name }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if not completed_orders %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No completed orders.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Status Update Modal -->
+<div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateStatusModalLabel">Update Order Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Update status for <strong>Order #<span id="order-id-display"></span></strong>?</p>
+                <div class="mb-3">
+                    <label for="order-status" class="form-label">New Status</label>
+                    <select class="form-select" id="order-status">
+                        <option value="pending">Pending</option>
+                        <option value="preparing">Preparing</option>
+                        <option value="ready">Ready</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update-status-btn">Update Status</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const restaurantId = {{ restaurant_id }};
+    const activeOrdersContainer = document.getElementById('active-orders');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const noOrdersMessage = document.getElementById('no-orders-message');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const notificationAlert = document.getElementById('notification-alert');
+    const notificationMessage = document.getElementById('notification-message');
+    const updateStatusModal = new bootstrap.Modal(document.getElementById('updateStatusModal'));
+    const updateStatusBtn = document.getElementById('update-status-btn');
+    const orderStatusSelect = document.getElementById('order-status');
+    let currentOrderId = null;
+    let refreshInterval = null;
+    
+    // Initialize notification manager
+    if (typeof notificationManager !== 'undefined') {
+        notificationManager.init();
+        notificationManager.subscribeToRestaurant(restaurantId);
+        
+        // Listen for notifications
+        notificationManager.addEventListener('notification', handleNotification);
+    } else {
+        console.error('Notification manager not found');
+    }
+    
+    // Load active orders on page load
+    loadActiveOrders();
+    
+    // Set up refresh interval (every 30 seconds)
+    refreshInterval = setInterval(loadActiveOrders, 30000);
+    
+    // Handle refresh button click
+    refreshBtn.addEventListener('click', function() {
+        loadActiveOrders();
+    });
+    
+    // Handle status update button click
+    updateStatusBtn.addEventListener('click', function() {
+        const newStatus = orderStatusSelect.value;
+        updateOrderStatus(currentOrderId, newStatus);
+    });
+    
+    // Function to load active orders via API
+    function loadActiveOrders() {
+        loadingSpinner.classList.remove('d-none');
+        noOrdersMessage.classList.add('d-none');
+        
+        // Clear existing orders except for loading spinner and no orders message
+        const orderCards = activeOrdersContainer.querySelectorAll('.card');
+        orderCards.forEach(card => card.remove());
+        
+        fetch('/api/restaurant/active-orders')
+            .then(response => response.json())
+            .then(data => {
+                loadingSpinner.classList.add('d-none');
+                
+                if (data.success && data.orders && data.orders.length > 0) {
+                    renderOrders(data.orders);
+                    noOrdersMessage.classList.add('d-none');
+                } else {
+                    noOrdersMessage.classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching orders:', error);
+                loadingSpinner.classList.add('d-none');
+                noOrdersMessage.classList.remove('d-none');
+                noOrdersMessage.textContent = 'Error loading orders. Please try again.';
+            });
+    }
+    
+    // Function to render orders
+    function renderOrders(orders) {
+        // Sort orders by status (pending first, then preparing, then ready)
+        orders.sort((a, b) => {
+            const statusOrder = { 'pending': 0, 'preparing': 1, 'ready': 2 };
+            if (statusOrder[a.status] !== statusOrder[b.status]) {
+                return statusOrder[a.status] - statusOrder[b.status];
+            }
+            // If same status, sort by creation time (newer first)
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+        
+        // Create and append order cards
+        orders.forEach(order => {
+            const orderCard = createOrderCard(order);
+            activeOrdersContainer.insertBefore(orderCard, noOrdersMessage);
+        });
+    }
+    
+    // Function to create an order card
+    function createOrderCard(order) {
+        const card = document.createElement('div');
+        card.className = 'card order-card';
+        card.id = `order-${order.id}`;
+        
+        // Format created time
+        const createdAt = new Date(order.created_at);
+        const timeString = createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Calculate time elapsed
+        const now = new Date();
+        const elapsed = Math.floor((now - createdAt) / 60000); // minutes
+        const elapsedStr = elapsed < 60 ? 
+            `${elapsed} min ago` : 
+            `${Math.floor(elapsed/60)}h ${elapsed%60}m ago`;
+        
+        // Create card content
+        card.innerHTML = `
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <strong>Order #${order.id}</strong>
+                    </h5>
+                    <span class="status-badge status-${order.status}">${order.status.toUpperCase()}</span>
+                </div>
+                <div class="text-muted">
+                    <small>Table ${order.table_number} - ${timeString} (${elapsedStr})</small>
+                </div>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    ${order.items.map(item => `
+                        <li class="list-group-item p-2 order-item">
+                            <strong>${item.quantity}x</strong> ${item.name}
+                        </li>
+                    `).join('')}
+                </ul>
+                <div class="order-actions text-end">
+                    <button class="btn btn-sm btn-outline-primary change-status-btn" data-order-id="${order.id}">
+                        Change Status
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listener to change status button
+        card.querySelector('.change-status-btn').addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            openStatusModal(orderId, order.status);
+        });
+        
+        return card;
+    }
+    
+    // Function to open the status update modal
+    function openStatusModal(orderId, currentStatus) {
+        currentOrderId = orderId;
+        document.getElementById('order-id-display').textContent = orderId;
+        orderStatusSelect.value = currentStatus;
+        updateStatusModal.show();
+    }
+    
+    // Function to update order status
+    function updateOrderStatus(orderId, newStatus) {
+        fetch(`/api/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close the modal
+                    updateStatusModal.hide();
+                    
+                    // Refresh the orders
+                    loadActiveOrders();
+                    
+                    // Show success notification
+                    showNotification(`Order #${orderId} status updated to ${newStatus}`);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating order status:', error);
+                alert('An error occurred while updating the order status.');
+            });
+    }
+    
+    // Function to handle notifications
+    function handleNotification(notification) {
+        console.log('Received notification:', notification);
+        
+        // Handle new order notification
+        if (notification.type === 'new_order') {
+            showNotification(`New order #${notification.data.orderId} from Table ${notification.data.tableNumber}`);
+            loadActiveOrders(); // Refresh orders
+        }
+        
+        // Handle order status update notification
+        else if (notification.type === 'order_status') {
+            showNotification(`Order #${notification.data.orderId} status changed to ${notification.data.status}`);
+            loadActiveOrders(); // Refresh orders
+        }
+    }
+    
+    // Function to show a notification
+    function showNotification(message) {
+        notificationMessage.textContent = message;
+        notificationAlert.classList.remove('d-none');
+        
+        // Hide after 5 seconds
+        setTimeout(function() {
+            notificationAlert.classList.add('d-none');
+        }, 5000);
+    }
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        // Clear refresh interval
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+});
+</script>
+{% endblock %}

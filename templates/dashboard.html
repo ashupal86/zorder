@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Digital Waiter{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Restaurant Dashboard</h1>
+    <div id="socket-status" class="connection-status disconnected">Socket: Disconnected</div>
+</div>
+
+<div class="dashboard-cards">
+    <div class="dashboard-card">
+        <h2>Active Orders</h2>
+        <div class="card-value">{{ active_orders_count }}</div>
+        <a href="{{ url_for('orders.orders_page') }}" class="card-link">View Orders</a>
+    </div>
+    
+    <div class="dashboard-card">
+        <h2>Menu Items</h2>
+        <div class="card-value">{{ menu_items_count }}</div>
+        <a href="{{ url_for('menu_bp.menu') }}" class="card-link">Manage Menu</a>
+    </div>
+    
+    <div class="dashboard-card">
+        <h2>Tables</h2>
+        <div class="card-value">{{ tables_count }}</div>
+        <a href="{{ url_for('table_bp.tables') }}" class="card-link">Manage Tables</a>
+    </div>
+</div>
+
+<div class="dashboard-section">
+    <h2>Recent Orders</h2>
+    <div id="recent-orders">
+        <div class="loading">Loading recent orders...</div>
+    </div>
+</div>
+
+<!-- Restaurant notifications will appear here -->
+<div id="notifications-container" class="notifications-container">
+    <div class="notification-header">
+        <h3>Notifications</h3>
+        <button id="clear-notifications" class="secondary-btn">Clear All</button>
+    </div>
+    <div id="notification-list" class="notification-list"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Socket.IO notification manager
+        notificationManager.init();
+        
+        // Set up connection status indicator
+        const socketStatus = document.getElementById('socket-status');
+        
+        notificationManager.addEventListener('connected', function() {
+            socketStatus.textContent = 'Socket: Connected';
+            socketStatus.className = 'connection-status connected';
+            
+            // Subscribe to restaurant notifications
+            const restaurantId = {{ current_user.id }};
+            notificationManager.socket.emit('subscribe_restaurant', {
+                restaurantId: restaurantId
+            });
+        });
+        
+        notificationManager.addEventListener('error', function() {
+            socketStatus.textContent = 'Socket: Error';
+            socketStatus.className = 'connection-status error';
+        });
+        
+        // Handle notifications
+        notificationManager.addEventListener('notification', function(notification) {
+            if (notification.type === 'new_order') {
+                // Add notification to the list
+                addNotification(notification);
+                
+                // Refresh recent orders
+                loadRecentOrders();
+            }
+        });
+        
+        // Load recent orders on page load
+        loadRecentOrders();
+        
+        // Set up refresh interval for recent orders
+        setInterval(loadRecentOrders, 60000);  // Refresh every minute
+        
+        // Set up clear notifications button
+        document.getElementById('clear-notifications').addEventListener('click', function() {
+            clearNotifications();
+        });
+    });
+    
+    // Load recent orders
+    function loadRecentOrders() {
+        fetch('/api/restaurant/active-orders')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateRecentOrders(data.orders);
+                } else {
+                    console.error('Error loading recent orders:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading recent orders:', error);
+            });
+    }
+    
+    // Update recent orders display
+    function updateRecentOrders(orders) {
+        const recentOrdersElement = document.getElementById('recent-orders');
+        
+        if (orders.length === 0) {
+            recentOrdersElement.innerHTML = '<div class="empty-state">No recent orders</div>';
+            return;
+        }
+        
+        recentOrdersElement.innerHTML = '';
+        
+        // Create order cards
+        orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        orders.slice(0, 5).forEach(order => {
+            const orderCard = document.createElement('div');
+            orderCard.className = 'order-card';
+            orderCard.dataset.status = order.status;
+            
+            // Create card content
+            orderCard.innerHTML = `
+                <div class="order-card-header">
+                    <div class="order-id">Order #${order.id}</div>
+                    <div class="order-status ${order.status}">${capitalizeFirstLetter(order.status)}</div>
+                </div>
+                <div class="order-card-body">
+                    <div class="order-table">Table ${order.table_number}</div>
+                    <div class="order-items-count">${order.items.length} item${order.items.length > 1 ? 's' : ''}</div>
+                </div>
+                <div class="order-card-footer">
+                    <div class="order-time">${formatTime(order.created_at)}</div>
+                    <a href="/orders#order-${order.id}" class="order-details-link">Details</a>
+                </div>
+            `;
+            
+            recentOrdersElement.appendChild(orderCard);
+        });
+    }
+    
+    // Add notification to the list
+    function addNotification(notification) {
+        const notificationList = document.getElementById('notification-list');
+        
+        const notificationElement = document.createElement('div');
+        notificationElement.className = 'notification-item';
+        
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        notificationElement.innerHTML = `
+            <div class="notification-header">
+                <div class="notification-title">${notification.title}</div>
+                <div class="notification-time">${time}</div>
+            </div>
+            <div class="notification-body">${notification.body}</div>
+        `;
+        
+        notificationList.prepend(notificationElement);
+        
+        // Add highlight effect
+        setTimeout(() => {
+            notificationElement.classList.add('highlight');
+        }, 10);
+        
+        // Remove highlight effect after animation
+        setTimeout(() => {
+            notificationElement.classList.remove('highlight');
+        }, 2000);
+    }
+    
+    // Clear all notifications
+    function clearNotifications() {
+        const notificationList = document.getElementById('notification-list');
+        notificationList.innerHTML = '';
+    }
+    
+    // Format time from ISO string
+    function formatTime(timeString) {
+        const date = new Date(timeString);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Capitalize first letter
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+</script>
+{% endblock %} 

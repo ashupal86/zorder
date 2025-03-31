@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Receipt #{{ order.id }}</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f8f9fa;
+    }
+    
+    .receipt {
+      max-width: 80mm;
+      margin: 20px auto;
+      background-color: white;
+      padding: 10px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+    }
+    
+    .receipt-header {
+      text-align: center;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .restaurant-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    
+    .receipt-info {
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+    
+    .receipt-info p {
+      margin: 3px 0;
+    }
+    
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+    
+    .items-table th {
+      text-align: left;
+      border-bottom: 1px solid #ccc;
+      padding: 5px 2px;
+    }
+    
+    .items-table tr td {
+      padding: 5px 2px;
+      border-bottom: 1px dotted #eee;
+    }
+    
+    .items-table .qty {
+      text-align: center;
+      width: 40px;
+    }
+    
+    .items-table .price {
+      text-align: right;
+      width: 50px;
+    }
+    
+    .total-section {
+      border-top: 1px dashed #ccc;
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+    
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+    
+    .total-row.final {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 5px;
+      border-top: 1px solid #ccc;
+      padding-top: 5px;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: #666;
+    }
+    
+    .barcode {
+      text-align: center;
+      margin: 15px 0;
+    }
+    
+    .special-instructions {
+      font-style: italic;
+      border: 1px solid #eee;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 0.85rem;
+      background-color: #f9f9f9;
+    }
+    
+    @media print {
+      body {
+        background-color: white;
+      }
+      .receipt {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+      }
+      .print-buttons {
+        display: none;
+      }
+    }
+
+    .print-buttons {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .print-button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .back-button {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-buttons">
+    <button class="print-button" onclick="window.print()">Print Receipt</button>
+    <button class="back-button" onclick="window.history.back()">Back to Orders</button>
+  </div>
+
+  <div class="receipt">
+    <div class="receipt-header">
+      <div class="restaurant-name">{{ order.restaurant_name }}</div>
+      <p>Digital Waiter System</p>
+    </div>
+    
+    <div class="receipt-info">
+      <p><strong>Order #:</strong> {{ order.id }}</p>
+      <p><strong>Date:</strong> {{ order.created_at }}</p>
+      <p><strong>Table:</strong> {{ order.table_number }}</p>
+      <p><strong>Customer:</strong> {{ order.customer_phone }}</p>
+      <p><strong>Status:</strong> {{ order.status }}</p>
+    </div>
+    
+    {% if order.special_instructions %}
+    <div class="special-instructions">
+      <strong>Special Instructions:</strong><br>
+      {{ order.special_instructions }}
+    </div>
+    {% endif %}
+    
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="qty">Qty</th>
+          <th class="price">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td class="qty">{{ item.quantity }}</td>
+          <td class="price">${{ "%.2f"|format(item.total_price) }}</td>
+        </tr>
+        {% if item.special_instructions %}
+        <tr>
+          <td colspan="3" style="font-size: 0.8rem; font-style: italic; padding-top: 0;">
+            Note: {{ item.special_instructions }}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    
+    <div class="total-section">
+      <div class="total-row">
+        <span>Subtotal:</span>
+        <span>${{ "%.2f"|format(order.total_amount) }}</span>
+      </div>
+      <div class="total-row">
+        <span>Tax (10%):</span>
+        <span>${{ "%.2f"|format(order.tax_amount) }}</span>
+      </div>
+      <div class="total-row final">
+        <span>Total:</span>
+        <span>${{ "%.2f"|format(order.final_amount) }}</span>
+      </div>
+      <div class="total-row">
+        <span>Payment Method:</span>
+        <span>{{ "Paid" if order.payment_method == "now" else "Pay at Table" }}</span>
+      </div>
+    </div>
+    
+    <div class="barcode">
+      *{{ order.id }}*
+    </div>
+    
+    <div class="footer">
+      <p>Thank you for your order!</p>
+      <p>{{ "%.2f"|format(order.timestamp) }}</p>
+    </div>
+  </div>
+</body>
+</html> 

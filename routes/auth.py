@@ -44,9 +44,8 @@ def register():
             # Create new user
             user = User(
                 name=name,
-                email=email,
-                phone=phone,
-                address=address
+                email=email
+                # Don't include phone and address until the database is updated
             )
             user.set_password(password)
 

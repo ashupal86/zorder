@@ -55,7 +55,7 @@
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h2">
-            <i class="fas fa-chair me-2"></i>Tables
+            <i class="fas fa-chair me-2"></i>Tables - {{ current_user.restaurant_name or current_user.name }}
         </h1>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTableModal">
             <i class="fas fa-plus me-2"></i>Add Table
@@ -77,9 +77,14 @@
                         {% if table.qr_code %}
                         <img src="{{ table.qr_code }}" alt="QR Code for Table {{ table.number }}" class="img-fluid">
                         <div class="qr-code-overlay">
-                            <button class="btn btn-light btn-sm" onclick="refreshQRCode({{ table.id }})">
-                                <i class="fas fa-sync-alt me-2"></i>Refresh QR
-                            </button>
+                            <div class="d-flex flex-column">
+                                <a href="{{ table.qr_code }}" download="QR_{{ current_user.restaurant_name or current_user.name }}_Table_{{ table.number }}.png" class="btn btn-light btn-sm mb-2">
+                                    <i class="fas fa-download me-2"></i>Download
+                                </a>
+                                <button class="btn btn-light btn-sm" onclick="refreshQRCode({{ table.id }})">
+                                    <i class="fas fa-sync-alt me-2"></i>Refresh QR
+                                </button>
+                            </div>
                         </div>
                         {% else %}
                         <div class="text-center py-4 bg-light">
@@ -96,6 +101,12 @@
                         <p class="mb-2">
                             <i class="fas fa-users me-2"></i>Capacity: {{ table.capacity }} people
                         </p>
+                        {% if table.qr_code %}
+                        <p class="small text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Scan to open digital menu
+                        </p>
+                        {% endif %}
                     </div>
                     
                     <div class="d-flex justify-content-center gap-2">
@@ -307,18 +318,53 @@ function toggleTable(id) {
 
 // Refresh QR code
 function refreshQRCode(id) {
+    const loadingBtn = event.target.closest('button');
+    const originalText = loadingBtn.innerHTML;
+    loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+    loadingBtn.disabled = true;
+    
     fetch(`/table/qr/${id}`)
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            showAlert(`QR code for ${data.restaurant_name} - Table ${data.table_number} generated successfully`, 'success');
+            
+            // Instead of reloading the page, update the QR code image
+            const imgContainer = loadingBtn.closest('.qr-code-container');
+            
+            if (imgContainer) {
+                // For existing QR code
+                const img = imgContainer.querySelector('img');
+                if (img) {
+                    img.src = data.qr_code + '?t=' + new Date().getTime(); // Add timestamp to prevent caching
+                } else {
+                    // For new QR code (when none existed)
+                    imgContainer.innerHTML = `
+                        <img src="${data.qr_code}" alt="QR Code for Table ${data.table_number}" class="img-fluid">
+                        <div class="qr-code-overlay">
+                            <div class="d-flex flex-column">
+                                <a href="${data.qr_code}" download="QR_${data.restaurant_name}_Table_${data.table_number}.png" class="btn btn-light btn-sm mb-2">
+                                    <i class="fas fa-download me-2"></i>Download
+                                </a>
+                                <button class="btn btn-light btn-sm" onclick="refreshQRCode(${id})">
+                                    <i class="fas fa-sync-alt me-2"></i>Refresh QR
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
         } else {
-            alert(data.message);
+            showAlert(data.message || 'Error generating QR code', 'danger');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error refreshing QR code');
+        showAlert('Error generating QR code', 'danger');
+    })
+    .finally(() => {
+        loadingBtn.innerHTML = originalText;
+        loadingBtn.disabled = false;
     });
 }
 
